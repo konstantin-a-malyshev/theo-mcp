@@ -12,7 +12,7 @@ from ..validation import normalize_edge_label
 
 
 def register_edge_tools(mcp: FastMCP) -> None:
-    @mcp.tool()
+    # @mcp.tool()
     def connect_vertices(ctx: Context[ServerSession, AppContext], edge_label: str, out_vertex: dict[str, Any], in_vertex: dict[str, Any]) -> dict[str, Any]:
         """Connect two existing vertices with an edge."""
         g = get_g(ctx)
@@ -38,12 +38,12 @@ def register_edge_tools(mcp: FastMCP) -> None:
             }
         }
 
-    @mcp.tool()
+    # @mcp.tool()
     def add_edge(ctx: Context[ServerSession, AppContext], edge_label: str, out_vertex: dict[str, Any], in_vertex: dict[str, Any]) -> dict[str, Any]:
         """Alias for connect_vertices (kept because you requested both operations explicitly)."""
         return connect_vertices(ctx, edge_label=edge_label, out_vertex=out_vertex, in_vertex=in_vertex)
 
-    @mcp.tool()
+    # @mcp.tool()
     def delete_edge(ctx: Context[ServerSession, AppContext], edge_label: str, out_vertex: dict[str, Any], in_vertex: dict[str, Any]) -> dict[str, Any]:
         """Delete all edges of type edge_label going from out_vertex -> in_vertex."""
         g = get_g(ctx)

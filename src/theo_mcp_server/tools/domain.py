@@ -11,7 +11,7 @@ from ..validation import normalize_edge_label
 
 
 def register_domain_tools(mcp: FastMCP) -> None:
-    @mcp.tool()
+    # @mcp.tool()
     def create_notion_and_connect(
         ctx: Context[ServerSession, AppContext],
         properties: dict[str, Any],
@@ -79,7 +79,7 @@ def register_domain_tools(mcp: FastMCP) -> None:
 
         return results
 
-    @mcp.tool()
+    # @mcp.tool()
     def create_notion_group_and_connect(
         ctx: Context[ServerSession, AppContext],
         properties: dict[str, Any],

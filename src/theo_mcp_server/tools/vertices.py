@@ -16,7 +16,7 @@ from ..validation import normalize_edge_label, normalize_label, validate_propert
 
 
 def register_vertex_tools(mcp: FastMCP) -> None:
-    @mcp.tool()
+    # @mcp.tool()
     def create_vertex(ctx: Context[ServerSession, AppContext], label: str, properties: dict[str, Any]) -> dict[str, Any]:
         """Create a vertex of any allowed label."""
         g = get_g(ctx)
@@ -34,7 +34,7 @@ def register_vertex_tools(mcp: FastMCP) -> None:
         from ..gremlin_helpers import flatten_value_map
         return {"created": flatten_value_map(created_raw)}
 
-    @mcp.tool()
+    # @mcp.tool()
     def create_vertex_and_connect_by_captions(
         ctx: Context[ServerSession, AppContext],
         label: str,
@@ -110,12 +110,12 @@ def register_vertex_tools(mcp: FastMCP) -> None:
 
         return results
 
-    @mcp.tool()
+    # @mcp.tool()
     def read_vertex_by_id(ctx: Context[ServerSession, AppContext], label: str, id: int) -> dict[str, Any]:
         """Read a vertex (by your 'id' property) plus all its incoming/outgoing edges."""
         return read_vertex_with_edges(ctx, label=label, vertex_id=int(id))
 
-    @mcp.tool()
+    # @mcp.tool()
     def update_vertex_by_id(
         ctx: Context[ServerSession, AppContext],
         label: str,
@@ -147,7 +147,7 @@ def register_vertex_tools(mcp: FastMCP) -> None:
 
         return read_vertex_with_edges(ctx, label=canon, vertex_id=int(id))
 
-    @mcp.tool()
+    # @mcp.tool()
     def delete_vertex_by_id(ctx: Context[ServerSession, AppContext], label: str, id: int) -> dict[str, Any]:
         """Delete a vertex (and all incident edges) by label + id."""
         g = get_g(ctx)
@@ -159,7 +159,7 @@ def register_vertex_tools(mcp: FastMCP) -> None:
         g.V().hasLabel(canon).has("id", int(id)).drop().iterate()
         return {"deleted": True, "label": canon, "id": int(id)}
 
-    @mcp.tool()
+    # @mcp.tool()
     def list_vertices_by_label(ctx: Context[ServerSession, AppContext], label: str, limit: int = 1000, offset: int = 0) -> list[dict[str, Any]]:
         """List vertices (id + caption) for a given label."""
         g = get_g(ctx)
@@ -176,7 +176,7 @@ def register_vertex_tools(mcp: FastMCP) -> None:
             .toList()
         )
 
-    @mcp.tool()
+    # @mcp.tool()
     def find_vertices_by_caption(ctx: Context[ServerSession, AppContext], caption: str, label: str | None = None, limit: int = 50) -> list[dict[str, Any]]:
         """Find vertices by exact caption match (optionally filtered by label)."""
         g = get_g(ctx)
@@ -194,7 +194,93 @@ def register_vertex_tools(mcp: FastMCP) -> None:
 
     @mcp.tool()
     def get_verse_by_caption(ctx: Context[ServerSession, AppContext], caption: str) -> dict[str, Any]:
-        """Get verse by exact caption match."""
+        """
+        Get verse by exact caption match. 
+        
+        The verse caption has the format `{book} {chapter}:{verse number}`, e. g. Jn 1:11 or 2Pet 2:13.
+
+        The book is a short abbreviation of a bible book. Here is a complete list of possible book abbreviations:
+
+        - Acts (for Acts),
+        - 2Pet (for II Peter),
+        - Gal (for Galatians),
+        - 1Kgs (for I Kings),
+        - Ps (for Psalms),
+        - 1Mac (for I Maccabees),
+        - Esth (for Esther),
+        - Hab (for Habakkuk),
+        - Hag (for Haggai),
+        - Jdt (for Judith),
+        - Bar (for Baruch),
+        - Zech (for Zechariah),
+        - 1Cor (for I Corinthians),
+        - Hos (for Hosea),
+        - 1Mac (for III Maccabees),
+        - Lk (for Luke),
+        - 1Sam (for I Samuel),
+        - Judg (for Judges),
+        - Eccl (for Ecclesiastes),
+        - Jonah (for Jonah),
+        - Jn (for John),
+        - Mt (for Matthew),
+        - Prov (for Proverbs),
+        - Lam (for Lamentations),
+        - 2Kgs (for II Kings),
+        - 1Chr (for I Chronicles),
+        - Amos (for Amos),
+        - 1Th (for I Thessalonians),
+        - Phlm (for Philemon),
+        - 2Tim (for II Timothy),
+        - Zeph (for Zephaniah),
+        - Nah (for Nahum),
+        - Joel (for Joel),
+        - Rom (for Romans),
+        - Gen (for Genesis),
+        - Jude (for Jude),
+        - 2Cor (for II Corinthians),
+        - Heb (for Hebrews),
+        - 2Mac (for II Maccabees),
+        - Wis (for Wisdom),
+        - 2Jn (for II John),
+        - Tob (for Tobit),
+        - Sir (for Sirach),
+        - Deut (for Deuteronomy),
+        - Mal (for Malachi),
+        - PrMan (for Prayer of Manasses),
+        - 2Chr (for II Chronicles),
+        - Ezr (for Ezra),
+        - Dan (for Daniel),
+        - 1Jn (for I John),
+        - Ruth (for Ruth),
+        - Col (for Colossians),
+        - SS (for Song of Solomon),
+        - Job (for Job),
+        - EpJer (for Epistle of Jeremiah),
+        - Mic (for Micah),
+        - Jas (for James),
+        - Phil (for Philippians),
+        - Eph (for Ephesians),
+        - 1Tim (for I Timothy),
+        - Ex (for Exodus),
+        - 3Jn (for III John),
+        - Tit (for Titus),
+        - Ez (for Ezekiel),
+        - Num (for Numbers),
+        - Mk (for Mark),
+        - 2Th (for II Thessalonians),
+        - Obad (for Obadiah),
+        - 1Esd (for I Esdras),
+        - 2Esd (for II Esdras),
+        - 2Sam (for II Samuel),
+        - 1Pet (for I Peter),
+        - Josh (for Joshua),
+        - Lev (for Leviticus),
+        - Rev (for Revelation of John),
+        - Jer (for Jeremiah),
+        - Is (for Isaiah),
+        - Neh (for Nehemiah).
+
+        """
         g = get_g(ctx)
         t = g.V().has("caption", caption)
         return (
