@@ -3,21 +3,21 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "janusgraph-mcp-server"
+name = "theo-mcp-server"
 version = "0.1.0"
-description = "MCP server for JanusGraph/Gremlin CRUD and edge operations."
+description = "MCP server for Gremlin/Gremlin CRUD and edge operations."
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}
 authors = [{name = "Your Team"}]
 dependencies = [
-  # Pin gremlinpython to your JanusGraph/TinkerPop version. JanusGraph docs show gremlinpython==3.7.3.
+  # Pin gremlinpython to your JanusGraph/TinkerPop version. Gremlin docs show gremlinpython==3.7.3.
   "gremlinpython==3.7.3",
   "mcp[cli]>=1.0.0",
 ]
 
 [project.scripts]
-janusgraph-mcp = "janusgraph_mcp_server.__main__:main"
+theo-mcp = "theo_mcp_server.__main__:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

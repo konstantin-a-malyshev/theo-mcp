@@ -9,7 +9,7 @@ from .tools.vertices import register_vertex_tools
 
 
 def create_mcp() -> FastMCP:
-    mcp = FastMCP("janusgraph-mcp", lifespan=app_lifespan, json_response=True)
+    mcp = FastMCP("theo-mcp", lifespan=app_lifespan, json_response=True)
     
     # Register tools in a predictable order
     register_vertex_tools(mcp)

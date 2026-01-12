@@ -1,6 +1,6 @@
 import pytest
 
-from janusgraph_mcp_server.validation import normalize_label, normalize_edge_label, validate_properties
+from theo_mcp_server.validation import normalize_label, normalize_edge_label, validate_properties
 
 
 def test_normalize_label():

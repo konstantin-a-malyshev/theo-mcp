@@ -51,13 +51,13 @@ export MCP_TRANSPORT="stdio"
 ### Using the console script
 
 ```bash
-janusgraph-mcp
+theo-mcp
 ```
 
 ### Or as a module
 
 ```bash
-python -m janusgraph_mcp_server
+python -m theo_mcp_server
 ```
 
 ## Additional tips
@@ -70,7 +70,7 @@ python -m janusgraph_mcp_server
 {
   "mcpServers": {
     "theo-server": {
-      "command": "C:\\Users\\MALY022\\AppData\\Roaming\\Python\\Python312\\Scripts\\janusgraph-mcp.exe"
+      "command": "C:\\Users\\MALY022\\AppData\\Roaming\\Python\\Python312\\Scripts\\theo-mcp.exe"
     }
   }
 }
@@ -78,7 +78,7 @@ python -m janusgraph_mcp_server
 
 ## Tool overview
 
-See `src/janusgraph_mcp_server/tools/`:
+See `src/theo_mcp_server/tools/`:
 - `vertices.py`: create/read/update/delete/list/find
 - `domain.py`: create notion / notionGroup and connect via supported/challenged/refers
 - `edges.py`: connect/add/delete edges between existing vertices
