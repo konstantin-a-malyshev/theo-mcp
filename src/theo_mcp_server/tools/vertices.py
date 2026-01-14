@@ -2,11 +2,13 @@ from __future__ import annotations
 
 from typing import Any
 
+import traceback 
+
 from gremlin_python.process.graph_traversal import __
 from gremlin_python.process.traversal import T
 from mcp.server.fastmcp import Context, FastMCP
 from mcp.server.session import ServerSession
-
+from mcp.server.fastmcp.exceptions import ToolError
 from ..gremlin_client import AppContext, get_g
 from ..gremlin_helpers import (
     read_vertex_with_edges,
@@ -281,14 +283,23 @@ def register_vertex_tools(mcp: FastMCP) -> None:
         - Neh (for Nehemiah).
 
         """
-        g = get_g(ctx)
-        t = g.V().has("caption", caption)
-        return (
-            t.limit(1)
-            .project("id", "label", "caption", "RST")
-            .by(T.id)
-            .by(__.label())
-            .by(__.values("caption"))
-            .by(__.values("RST"))
-            .next()
-        )
+        try:
+            g = get_g(ctx)
+            ids = g.V().has("caption", caption).id_().toList()
+            if not ids:
+                raise ValueError(f"Verse not found: caption={caption}")
+            
+            return read_vertex_with_edges(ctx, ids[0])
+            # return {"status": ids}
+        except Exception:
+            raise ToolError(traceback.format_exc())
+
+    @mcp.tool()
+    def get_notion_by_id(ctx: Context[ServerSession, AppContext], id: int) -> dict[str, Any]:
+        """
+        Get notion by id.
+        """
+        try:
+            return read_vertex_with_edges(ctx, id)
+        except Exception:
+            raise ToolError(traceback.format_exc())

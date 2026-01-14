@@ -58,45 +58,40 @@ def resolve_unique_vertex(ctx: Context[ServerSession, AppContext], ref: dict[str
     return matches[0]
 
 
-def read_vertex_with_edges(ctx: Context[ServerSession, AppContext], label: str, vertex_id: int) -> dict[str, Any]:
-    """Read vertex by (label + property id) and include all in/out edges."""
+def read_vertex_with_edges(ctx: Context[ServerSession, AppContext], id: int) -> dict[str, Any]:
+    """Read vertex by id and include all in/out edges with their vertexes."""
     g = get_g(ctx)
-    canon = normalize_label(label)
 
-    base = g.V().hasLabel(canon).has("id", int(vertex_id))
-    raw = base.limit(1).valueMap(True).toList()
+    raw = g.V(id).valueMap(True).toList()
     if not raw:
-        raise ValueError(f"Vertex not found: label={canon} id={vertex_id}")
+        raise ValueError(f"Vertex not found: id={id}")
 
     vertex = flatten_value_map(raw[0])
 
     in_edges = (
-        base.inE()
-        .project("edge_label", "from")
+        g.V(id).inE().group()
         .by(__.label())
-        .by(
-            __.outV()
-            .project("label", "id", "caption", "internal_id")
+        .by(__.outV().project("label", "id", "caption")
             .by(__.label())
-            .by(__.values("id"))
+            .by(T.id)
             .by(__.values("caption"))
-            .by(__.id())
+            .fold()
         )
         .toList()
     )
     out_edges = (
-        base.outE()
-        .project("edge_label", "to")
+        g.V(id).outE().group()
         .by(__.label())
-        .by(
-            __.inV()
-            .project("label", "id", "caption", "internal_id")
+        .by(__.inV().project("label", "id", "caption")
             .by(__.label())
-            .by(__.values("id"))
+            .by(T.id)
             .by(__.values("caption"))
-            .by(__.id())
+            .fold()
         )
         .toList()
     )
 
-    return {"vertex": vertex, "in_edges": in_edges, "out_edges": out_edges}
+    vertex['outEdges'] = out_edges[0]
+    vertex['inEdges'] = in_edges[0]
+
+    return vertex
