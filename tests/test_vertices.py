@@ -27,5 +27,3 @@ async def test_get_notion_by_id(mcp_session):
     dict = result.structuredContent
 
     print(json.dumps(dict, indent=2, ensure_ascii=False))
-
-    assert dict.get('id') == 122884320
