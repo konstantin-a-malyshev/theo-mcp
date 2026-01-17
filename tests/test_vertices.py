@@ -3,11 +3,7 @@ import pytest
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
-server_params = StdioServerParameters(
-    command="theo-mcp",
-    # args=["run", "server", "fastmcp_quickstart", "stdio"],  # We're already in snippets dir
-    # env={"UV_INDEX": os.environ.get("UV_INDEX", "")},
-)
+server_params = StdioServerParameters(command="theo-mcp")
 
 @pytest.fixture
 async def mcp_session():
@@ -24,3 +20,12 @@ async def test_get_verse_by_caption(mcp_session):
     print(json.dumps(dict, indent=2, ensure_ascii=False))
 
     assert dict.get('caption') == "Jn 9:22"
+
+@pytest.mark.anyio
+async def test_get_notion_by_id(mcp_session):
+    result = await mcp_session.call_tool("get_notion_by_id", {"id": 122884320})
+    dict = result.structuredContent
+
+    print(json.dumps(dict, indent=2, ensure_ascii=False))
+
+    assert dict.get('id') == 122884320

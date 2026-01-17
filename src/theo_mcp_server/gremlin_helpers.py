@@ -18,6 +18,10 @@ def reverse_relationship_keys(data: dict[str, Any]) -> dict[str, Any]:
         "supports"      : "isSupportedBy",
         "isChallengedBy": "challenges",
         "challenges"    : "isChallengedBy",
+        "refersTo"      : "isReferredToBy",
+        "isReferredToBy": "refersTo",
+        "contains"      : "isContainedIn",
+        "isContainedIn" : "contains",
     }
 
     reversed_dict = {}
