@@ -18,9 +18,9 @@ async def mcp_session():
 
 @pytest.mark.anyio
 async def test_get_verse_by_caption(mcp_session):
-    result = await mcp_session.call_tool("get_verse_by_caption", {"caption": "Jn 1:1"})
+    result = await mcp_session.call_tool("get_verse_by_caption", {"caption": "Jn 9:22"})
     dict = result.structuredContent
 
     print(json.dumps(dict, indent=2, ensure_ascii=False))
 
-    assert dict.get('caption') == "Jn 1:1"
+    assert dict.get('caption') == "Jn 9:22"

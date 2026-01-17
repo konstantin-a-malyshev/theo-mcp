@@ -10,6 +10,21 @@ from mcp.server.session import ServerSession
 from .gremlin_client import AppContext, get_g
 from .validation import normalize_label
 
+def reverse_relationship_keys(data: dict[str, Any]) -> dict[str, Any]:
+    reverse_mapping = {
+        "next"          : "previous",
+        "previous"      : "next",
+        "isSupportedBy" : "supports",
+        "supports"      : "isSupportedBy",
+        "isChallengedBy": "challenges",
+        "challenges"    : "isChallengedBy",
+    }
+
+    reversed_dict = {}
+    for key, value in data.items():
+        new_key = reverse_mapping.get(key, key)  # Use original key if not in mapping
+        reversed_dict[new_key] = value
+    return reversed_dict
 
 def flatten_value_map(raw: dict[Any, Any]) -> dict[str, Any]:
     """Flatten valueMap(True) output into JSON-friendly keys/values."""
@@ -68,17 +83,6 @@ def read_vertex_with_edges(ctx: Context[ServerSession, AppContext], id: int) -> 
 
     vertex = flatten_value_map(raw[0])
 
-    in_edges = (
-        g.V(id).inE().group()
-        .by(__.label())
-        .by(__.outV().project("label", "id", "caption")
-            .by(__.label())
-            .by(T.id)
-            .by(__.values("caption"))
-            .fold()
-        )
-        .toList()
-    )
     out_edges = (
         g.V(id).outE().group()
         .by(__.label())
@@ -91,7 +95,18 @@ def read_vertex_with_edges(ctx: Context[ServerSession, AppContext], id: int) -> 
         .toList()
     )
 
-    vertex['outEdges'] = out_edges[0]
-    vertex['inEdges'] = in_edges[0]
+    in_edges = (
+        g.V(id).inE().group()
+        .by(__.label())
+        .by(__.outV().project("label", "id", "caption")
+            .by(__.label())
+            .by(T.id)
+            .by(__.values("caption"))
+            .fold()
+        )
+        .toList()
+    )
+
+    vertex['relationships'] = {**out_edges[0], **reverse_relationship_keys(in_edges[0])}
 
     return vertex
