@@ -48,6 +48,12 @@ export MCP_TRANSPORT="stdio"
 
 ## Run
 
+### Activate Virtual Environment
+
+```bash
+.\.venv\Scripts\Activate.ps1
+```
+
 ### Using the console script
 
 ```bash
@@ -58,6 +64,18 @@ theo-mcp
 
 ```bash
 python -m theo_mcp_server
+```
+
+## Run Tests
+
+```
+pytest
+```
+
+or with stdout output
+
+```
+pytest -s
 ```
 
 ## Additional tips

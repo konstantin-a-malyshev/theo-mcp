@@ -6,7 +6,7 @@ from mcp.server.fastmcp import Context, FastMCP
 from mcp.server.session import ServerSession
 
 from ..gremlin_client import AppContext, get_g
-from ..gremlin_helpers import resolve_unique_vertex
+from ..gremlin_helpers import get_unique_vertex_by_caption
 from ..validation import normalize_edge_label
 
 
@@ -54,7 +54,7 @@ def register_domain_tools(mcp: FastMCP) -> None:
                 return
             e = normalize_edge_label(edge_label)
             for ref in targets:
-                target = resolve_unique_vertex(ctx, ref)
+                target = get_unique_vertex_by_caption(ctx, ref)
                 eid = (
                     g.V(new_internal)
                     .as_("a")
@@ -117,7 +117,7 @@ def register_domain_tools(mcp: FastMCP) -> None:
                 return
             e = normalize_edge_label(edge_label)
             for ref in targets:
-                target = resolve_unique_vertex(ctx, ref)
+                target = get_unique_vertex_by_caption(ctx, ref)
                 eid = (
                     g.V(new_internal)
                     .as_("a")

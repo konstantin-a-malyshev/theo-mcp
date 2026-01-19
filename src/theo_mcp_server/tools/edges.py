@@ -7,7 +7,7 @@ from mcp.server.fastmcp import Context, FastMCP
 from mcp.server.session import ServerSession
 
 from ..gremlin_client import AppContext, get_g
-from ..gremlin_helpers import resolve_unique_vertex
+from ..gremlin_helpers import get_unique_vertex_by_caption
 from ..validation import normalize_edge_label
 
 
@@ -17,8 +17,8 @@ def register_edge_tools(mcp: FastMCP) -> None:
         """Connect two existing vertices with an edge."""
         g = get_g(ctx)
         e = normalize_edge_label(edge_label)
-        out_v = resolve_unique_vertex(ctx, out_vertex)
-        in_v = resolve_unique_vertex(ctx, in_vertex)
+        out_v = get_unique_vertex_by_caption(ctx, out_vertex)
+        in_v = get_unique_vertex_by_caption(ctx, in_vertex)
 
         eid = (
             g.V(out_v["internal_id"])
@@ -48,8 +48,8 @@ def register_edge_tools(mcp: FastMCP) -> None:
         """Delete all edges of type edge_label going from out_vertex -> in_vertex."""
         g = get_g(ctx)
         e = normalize_edge_label(edge_label)
-        out_v = resolve_unique_vertex(ctx, out_vertex)
-        in_v = resolve_unique_vertex(ctx, in_vertex)
+        out_v = get_unique_vertex_by_caption(ctx, out_vertex)
+        in_v = get_unique_vertex_by_caption(ctx, in_vertex)
 
         count = (
             g.V(out_v["internal_id"])

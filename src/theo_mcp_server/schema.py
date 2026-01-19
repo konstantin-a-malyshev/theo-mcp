@@ -4,8 +4,7 @@ from __future__ import annotations
 LABELS_CANON: dict[str, str] = {
     "notion": "notion",
     "person": "person",
-    "book": "Book",
-    "Book": "Book",
+    "book": "book",
     "verse": "verse",
     "notiongroup": "notionGroup",
     "notionGroup": "notionGroup",
@@ -18,28 +17,26 @@ ALLOWED_EDGE_LABELS: set[str] = {
     "refersTo",
     "contains",
     "isSupportedBy",
-    "supportedBy",
     "isChallengedBy",
-    "challengedBy",
     "isParallelTo",
     "next",
     "writtenBy",
 }
 
 ALLOWED_PROPS: dict[str, set[str]] = {
-    "notion": {"id", "caption", "description", "quotation"},
-    "person": {"id", "caption"},
-    "Book": {"id", "caption"},
-    "verse": {"id", "chapter", "RST", "bookShort", "book", "caption", "importIndex", "verse"},
-    "notionGroup": {"id", "caption"},
-    "verseGroup": {"id", "caption"},
+    "notion": {"caption", "description", "quotation"},
+    "person": {"caption"},
+    "book": {"caption"},
+    "verse": {"chapter", "RST", "bookShort", "book", "caption", "importIndex", "verse"},
+    "notionGroup": {"caption"},
+    "verseGroup": {"caption"},
 }
 
 REQUIRED_PROPS: dict[str, set[str]] = {
-    "notion": {"id", "caption"},
-    "person": {"id", "caption"},
-    "Book": {"id", "caption"},
-    "verse": {"id", "caption"},
-    "notionGroup": {"id", "caption"},
-    "verseGroup": {"id", "caption"},
+    "notion": {"caption"},
+    "person": {"caption"},
+    "book": {"caption"},
+    "verse": {"caption"},
+    "notionGroup": {"caption"},
+    "verseGroup": {"caption"},
 }

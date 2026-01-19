@@ -22,27 +22,23 @@ def normalize_edge_label(edge_label: str) -> str:
     return edge_label
 
 
-def validate_properties(label: str, props: dict[str, Any], require_required: bool = True) -> dict[str, Any]:
-    canon = normalize_label(label)
-    allowed = ALLOWED_PROPS[canon]
-    required = REQUIRED_PROPS[canon]
+def validate_and_fix_properties(label: str, props: dict[str, Any], require_required: bool = True) -> dict[str, Any]:
+    allowed = ALLOWED_PROPS[label]
+    required = REQUIRED_PROPS[label]
 
     unknown = set(props.keys()) - allowed
     if unknown:
-        raise ValueError(f"Unknown properties for label '{canon}': {sorted(unknown)}. Allowed: {sorted(allowed)}")
+        raise ValueError(f"Unknown properties for label '{label}': {sorted(unknown)}. Allowed: {sorted(allowed)}")
 
     if require_required:
         missing = required - set(props.keys())
         if missing:
-            raise ValueError(f"Missing required properties for '{canon}': {sorted(missing)}")
+            raise ValueError(f"Missing required properties for '{label}': {sorted(missing)}")
 
     out: dict[str, Any] = dict(props)
 
     # Coerce ints where expected
-    if "id" in out and out["id"] is not None:
-        out["id"] = int(out["id"])
-
-    if canon == "verse":
+    if label == "verse":
         for k in ("chapter", "importIndex", "verse"):
             if k in out and out[k] is not None:
                 out[k] = int(out[k])

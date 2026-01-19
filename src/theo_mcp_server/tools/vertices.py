@@ -11,106 +11,16 @@ from mcp.server.session import ServerSession
 from mcp.server.fastmcp.exceptions import ToolError
 from ..gremlin_client import AppContext, get_g
 from ..gremlin_helpers import (
+    create_vertex_and_connect_by_captions,
+    filter_direct_relationships,
+    filter_backward_relationships,
+    reverse_backward_relationship_keys,
     read_vertex_with_edges,
-    resolve_unique_vertex,
 )
-from ..validation import normalize_edge_label, normalize_label, validate_properties
+from ..validation import normalize_edge_label, normalize_label, validate_and_fix_properties
 
 
 def register_vertex_tools(mcp: FastMCP) -> None:
-    # @mcp.tool()
-    def create_vertex(ctx: Context[ServerSession, AppContext], label: str, properties: dict[str, Any]) -> dict[str, Any]:
-        """Create a vertex of any allowed label."""
-        g = get_g(ctx)
-        canon = normalize_label(label)
-        props = validate_properties(canon, properties, require_required=True)
-
-        existing = g.V().hasLabel(canon).has("id", props["id"]).limit(1).toList()
-        if existing:
-            raise ValueError(f"Vertex already exists: label={canon} id={props['id']}")
-
-        t = g.addV(canon)
-        for k, v in props.items():
-            t = t.property(k, v)
-        created_raw = t.valueMap(True).next()
-        from ..gremlin_helpers import flatten_value_map
-        return {"created": flatten_value_map(created_raw)}
-
-    # @mcp.tool()
-    def create_vertex_and_connect_by_captions(
-        ctx: Context[ServerSession, AppContext],
-        label: str,
-        properties: dict[str, Any],
-        edges_out: dict[str, list[str]] | None = None,
-        edges_in: dict[str, list[str]] | None = None,
-        target_label: str | None = None,
-    ) -> dict[str, Any]:
-        """
-        Create a vertex, then connect it to existing vertices identified by their *captions*.
-
-        - edges_out: new -> targets
-        - edges_in:  sources -> new
-        """
-        created = create_vertex(ctx, label=label, properties=properties)["created"]
-        new_internal_id = created["internal_id"]
-
-        results: dict[str, Any] = {"created": created, "edges_created": []}
-
-        def _resolve_by_caption(caption: str) -> dict[str, Any]:
-            ref: dict[str, Any] = {"caption": caption}
-            if target_label:
-                ref["label"] = target_label
-            return resolve_unique_vertex(ctx, ref)
-
-        g = get_g(ctx)
-
-        if edges_out:
-            for edge_label, captions in edges_out.items():
-                e = normalize_edge_label(edge_label)
-                for cap in captions:
-                    target = _resolve_by_caption(cap)
-                    eid = (
-                        g.V(new_internal_id)
-                        .as_("a")
-                        .V(target["internal_id"])
-                        .addE(e)
-                        .from_("a")
-                        .id()
-                        .next()
-                    )
-                    results["edges_created"].append(
-                        {
-                            "edge_label": e,
-                            "out": {"label": created["label"], "id": created.get("id"), "caption": created.get("caption")},
-                            "in": {"label": target["label"], "id": target.get("id"), "caption": target.get("caption")},
-                            "edge_internal_id": eid,
-                        }
-                    )
-
-        if edges_in:
-            for edge_label, captions in edges_in.items():
-                e = normalize_edge_label(edge_label)
-                for cap in captions:
-                    source = _resolve_by_caption(cap)
-                    eid = (
-                        g.V(source["internal_id"])
-                        .as_("a")
-                        .V(new_internal_id)
-                        .addE(e)
-                        .from_("a")
-                        .id()
-                        .next()
-                    )
-                    results["edges_created"].append(
-                        {
-                            "edge_label": e,
-                            "out": {"label": source["label"], "id": source.get("id"), "caption": source.get("caption")},
-                            "in": {"label": created["label"], "id": created.get("id"), "caption": created.get("caption")},
-                            "edge_internal_id": eid,
-                        }
-                    )
-
-        return results
 
     # @mcp.tool()
     def read_vertex_by_id(ctx: Context[ServerSession, AppContext], label: str, id: int) -> dict[str, Any]:
@@ -134,7 +44,7 @@ def register_vertex_tools(mcp: FastMCP) -> None:
             raise ValueError(f"Vertex not found: label={canon} id={id}")
 
         if set_properties:
-            props = validate_properties(canon, set_properties, require_required=False)
+            props = validate_and_fix_properties(canon, set_properties, require_required=False)
             t = g.V().hasLabel(canon).has("id", int(id))
             for k, v_ in props.items():
                 t = t.property(k, v_)
@@ -193,8 +103,21 @@ def register_vertex_tools(mcp: FastMCP) -> None:
             .by(__.values("caption"))
             .toList()
         )
-
+    
     @mcp.tool()
+    def create_notion(ctx: Context[ServerSession, AppContext], caption: str, relationships: dict[str, list[str]] | None = None) -> dict[str, Any]:
+        """Create a notion vertex."""
+        try:
+            edges_in = filter_backward_relationships(relationships or {})
+            edges_in = reverse_backward_relationship_keys(edges_in)
+            edges_out = filter_direct_relationships(relationships or {})
+            # return {"edges_in": edges_in, "edges_out": edges_out, "caption": caption}
+
+            return create_vertex_and_connect_by_captions(ctx, "notion", {"caption": caption}, edges_out, edges_in)
+        except Exception:
+            raise ToolError(traceback.format_exc())
+
+    @mcp.tool()                                                 
     def get_verse_by_caption(ctx: Context[ServerSession, AppContext], caption: str) -> dict[str, Any]:
         """
         Get verse by exact caption match. 
