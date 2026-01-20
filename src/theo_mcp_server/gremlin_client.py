@@ -8,6 +8,7 @@ from typing import Any
 from gremlin_python.driver.driver_remote_connection import DriverRemoteConnection
 from gremlin_python.driver.aiohttp.transport import AiohttpTransport
 from gremlin_python.process.anonymous_traversal import traversal
+from gremlin_python.process.graph_traversal import GraphTraversalSource
 from mcp.server.fastmcp import Context, FastMCP
 from mcp.server.session import ServerSession
 
@@ -40,6 +41,18 @@ async def app_lifespan(server: FastMCP) -> AsyncIterator[AppContext]:
         except Exception:
             pass
 
+async def get_g_for_tests() -> GraphTraversalSource:
+    cfg = get_config()
+    
+    conn = DriverRemoteConnection(
+        cfg.gremlin_url,
+        cfg.gremlin_traversal_source,
+        transport_factory=lambda: AiohttpTransport(call_from_event_loop=True)
+    )
+    
+    g = traversal().withRemote(conn)
+    
+    return g
 
 def get_g(ctx: Context[ServerSession, AppContext]):
     return ctx.request_context.lifespan_context.g

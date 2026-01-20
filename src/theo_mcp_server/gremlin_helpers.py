@@ -4,6 +4,7 @@ from typing import Any
 
 from gremlin_python.process.graph_traversal import __
 from gremlin_python.process.traversal import T
+from gremlin_python.process.graph_traversal import GraphTraversalSource
 from mcp.server.fastmcp import Context
 from mcp.server.session import ServerSession
 
@@ -70,16 +71,15 @@ def flatten_value_map(raw: dict[Any, Any]) -> dict[str, Any]:
                 out[key] = v
     return out
 
-def get_vertices_by_caption(ctx: Context[ServerSession, AppContext], caption: str, limit: int = 10) -> list[dict[str, Any]]:
+def get_vertices_by_caption(g: GraphTraversalSource, caption: str, limit: int = 10) -> list[dict[str, Any]]:
     """Resolve a vertex caption into up to `limit` matches."""
-    g = get_g(ctx)
     t = g.V().has("caption", caption)
 
     raw_list = t.limit(limit).valueMap(True).toList()
     return [flatten_value_map(r) for r in raw_list]
 
-def get_unique_vertex_by_caption(ctx: Context[ServerSession, AppContext], caption: str) -> dict[str, Any]:
-    matches = get_vertices_by_caption(ctx, caption, limit=2)
+def get_unique_vertex_by_caption(g: GraphTraversalSource, caption: str) -> dict[str, Any]:
+    matches = get_vertices_by_caption(g, caption, limit=2)
     if not matches:
         raise ValueError(f"Vertex not found for caption={caption}")
     if len(matches) > 1:
@@ -89,7 +89,7 @@ def get_unique_vertex_by_caption(ctx: Context[ServerSession, AppContext], captio
     return matches[0]
 
 def create_vertex_and_connect_by_captions(
-    ctx: Context[ServerSession, AppContext],
+    g: GraphTraversalSource,
     label: str,
     properties: dict[str, Any],
     edges_out : dict[str, list[str]] | None = None,
@@ -102,81 +102,62 @@ def create_vertex_and_connect_by_captions(
     - edges_in:  sources -> new
     """
 
-
-    created = create_vertex(ctx, label=label, properties=properties)["created"]
+    created = create_vertex(g, label=label, properties=properties)["created"]
     new_internal_id = int(created["internal_id"])
 
     results: dict[str, Any] = {"created": created, "edges_created": []}
-
-    g = get_g(ctx)
-    res = g.V(2).toList()
-    return {"g": res, "new_internal_id": new_internal_id}
 
     # Try to ensure that all the targets/sources exist first
     if edges_out:
         for edge_label, captions in edges_out.items():
             e = normalize_edge_label(edge_label)
             for cap in captions:
-                get_unique_vertex_by_caption(ctx, cap)
+                get_unique_vertex_by_caption(g, cap)
     if edges_in:
         for edge_label, captions in edges_in.items():
             e = normalize_edge_label(edge_label)
             for cap in captions:
-                get_unique_vertex_by_caption(ctx, cap)
+                get_unique_vertex_by_caption(g, cap)
             
     # Now create the edges
     if edges_out:
         for edge_label, captions in edges_out.items():
             e = normalize_edge_label(edge_label)
             for cap in captions:
-                target = get_unique_vertex_by_caption(ctx, cap)
-                # return {"target": target, "from": new_internal_id, "to": target["internal_id"]}
-                return {"g": g}
-
-                eid = g.V(target["internal_id"]).toList()
-                    # as_("a")
-                    # .V(target["internal_id"]).as_("b").toList()
-                    # .addE(e)
-                    # .from_("a")
-                    # .to("b")
+                target = get_unique_vertex_by_caption(g, cap)
+                g.V(target["internal_id"]).as_("a") \
+                    .V(target["internal_id"]).as_("b") \
+                    .add_e(e).from_("a").to("b") \
+                    .iterate()
                 
                 results["edges_created"].append(
                     {
                         "edge_label": e,
                         "out": {"label": created["label"], "internalid": created.get("internal_id"), "caption": created.get("caption")},
                         "in": {"label": target["label"], "internalid": target.get("internal_id"), "caption": target.get("caption")},
-                        "edge_internal_id": eid,
                     }
                 )
-    """
+
     if edges_in:
         for edge_label, captions in edges_in.items():
             e = normalize_edge_label(edge_label)
             for cap in captions:
-                source = get_unique_vertex_by_caption(ctx, cap)
-                eid = (
-                    g.V(source["internal_id"])
-                    .as_("a")
-                    .V(new_internal_id)
-                    .addE(e)
-                    .from_("a")
-                    .id()
-                    .next()
-                )
+                source = get_unique_vertex_by_caption(g, cap)
+                g.V(source["internal_id"]).as_("a") \
+                    .V(new_internal_id).as_("b") \
+                    .addE(e).from_("a").to("b") \
+                    .iterate()
+                
                 results["edges_created"].append(
                     {
                         "edge_label": e,
                         "out": {"label": source["label"], "id": source.get("id"), "caption": source.get("caption")},
                         "in": {"label": created["label"], "id": created.get("id"), "caption": created.get("caption")},
-                        "edge_internal_id": eid,
                     }
                 )
-    """
-
     return results
 
-def create_vertex(ctx: Context[ServerSession, AppContext], label: str, properties: dict[str, Any]) -> dict[str, Any]:
-    g = get_g(ctx)
+def create_vertex(g: GraphTraversalSource, label: str, properties: dict[str, Any]) -> dict[str, Any]:
     label = normalize_label(label)
     props = validate_and_fix_properties(label, properties, require_required=True)
 
@@ -190,9 +171,8 @@ def create_vertex(ctx: Context[ServerSession, AppContext], label: str, propertie
     created_raw = t.valueMap(True).next()
     return {"created": flatten_value_map(created_raw)}
 
-def read_vertex_with_edges(ctx: Context[ServerSession, AppContext], id: int) -> dict[str, Any]:
+def read_vertex_with_edges(g: GraphTraversalSource, id: int) -> dict[str, Any]:
     """Read vertex by id and include all in/out edges with their vertexes."""
-    g = get_g(ctx)
 
     raw = g.V(id).valueMap(True).toList()
     if not raw:

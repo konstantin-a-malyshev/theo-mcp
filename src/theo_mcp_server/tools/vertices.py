@@ -111,9 +111,8 @@ def register_vertex_tools(mcp: FastMCP) -> None:
             edges_in = filter_backward_relationships(relationships or {})
             edges_in = reverse_backward_relationship_keys(edges_in)
             edges_out = filter_direct_relationships(relationships or {})
-            # return {"edges_in": edges_in, "edges_out": edges_out, "caption": caption}
-
-            return create_vertex_and_connect_by_captions(ctx, "notion", {"caption": caption}, edges_out, edges_in)
+            g = get_g(ctx)
+            return create_vertex_and_connect_by_captions(g, "notion", {"caption": caption}, edges_out, edges_in)
         except Exception:
             raise ToolError(traceback.format_exc())
 
@@ -212,8 +211,7 @@ def register_vertex_tools(mcp: FastMCP) -> None:
             if not ids:
                 raise ValueError(f"Verse not found: caption={caption}")
             
-            return read_vertex_with_edges(ctx, ids[0])
-            # return {"status": ids}
+            return read_vertex_with_edges(g, ids[0])
         except Exception:
             raise ToolError(traceback.format_exc())
 
@@ -223,6 +221,7 @@ def register_vertex_tools(mcp: FastMCP) -> None:
         Get notion by id.
         """
         try:
-            return read_vertex_with_edges(ctx, id)
+            g = get_g(ctx)
+            return read_vertex_with_edges(g, id)
         except Exception:
             raise ToolError(traceback.format_exc())
