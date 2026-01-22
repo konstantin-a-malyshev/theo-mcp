@@ -145,7 +145,7 @@ def create_vertex_and_connect_by_captions(
                 source = get_unique_vertex_by_caption(g, cap)
                 g.V(new_internal_id).as_("a") \
                     .V(source["internal_id"]).as_("b") \
-                    .addE(e).from_("a").to("b") \
+                    .addE(e).from_("b").to("a") \
                     .iterate()
                 
                 results["edges_created"].append(
@@ -207,3 +207,12 @@ def read_vertex_with_edges(g: GraphTraversalSource, id: int) -> dict[str, Any]:
     vertex['relationships'] = {**out_edges[0], **reverse_direct_relationship_keys(in_edges[0])}
 
     return vertex
+
+def delete_vertex_by_id(g: GraphTraversalSource, id: int) -> dict[str, Any]:
+    """Delete a vertex (and all incident edges) by id."""
+    raw = g.V(id).valueMap(True).toList()
+    if not raw:
+        raise ValueError(f"Vertex not found: id={id}")
+
+    g.V(id).drop().iterate()
+    return {"deleted": True, "id": int(id)}

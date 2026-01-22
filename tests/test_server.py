@@ -32,10 +32,35 @@ async def test_get_notion_by_id(mcp_session):
 
 @pytest.mark.anyio
 async def test_create_notion(mcp_session):
+    prefix = "test_create_notion"
     timestamp = datetime.datetime.now().strftime("%d.%m.%Y %H:%M:%S")
-    test_caption = f"test_create_notion_{timestamp}"
-    result = await mcp_session.call_tool("create_notion", {"caption": test_caption, "relationships": {"isSupportedBy": ["Jn 1:1"]}})
-    dict = result.structuredContent
 
-    print("HELLO")
-    print(json.dumps(dict, indent=2, ensure_ascii=False))
+    to_caption = f"{prefix}_TO_{timestamp}"
+    from_caption = f"{prefix}_FROM_{timestamp}"
+    test_caption = f"{prefix}_TEST_{timestamp}"
+
+    to_result   = await mcp_session.call_tool("create_notion", {"caption": to_caption})
+    from_result = await mcp_session.call_tool("create_notion", {"caption": from_caption})
+    test_result = await mcp_session.call_tool("create_notion", {"caption": test_caption, "relationships": {"isSupportedBy": [to_caption], "supports": [from_caption]}})
+
+    to_id =  to_result.structuredContent["created"]["internal_id"]
+    from_id = from_result.structuredContent["created"]["internal_id"]
+    test_id = test_result.structuredContent["created"]["internal_id"]
+
+    test_vertex = await mcp_session.call_tool("get_notion_by_id", {"id": test_id})
+
+    assert test_vertex.structuredContent["caption"] == test_caption
+    assert any(edge for edge in test_vertex.structuredContent["relationships"]['isSupportedBy'] if edge["caption"] == to_caption)
+    assert any(edge for edge in test_vertex.structuredContent["relationships"]['supports']      if edge["caption"] == from_caption)
+
+    # print(json.dumps(test_vertex.structuredContent, indent=2, ensure_ascii=False))
+
+    result = await mcp_session.call_tool("delete_notion_by_id", {"id": to_id})
+    assert result.structuredContent["deleted"] is True
+    result = await mcp_session.call_tool("delete_notion_by_id", {"id": from_id})
+    assert result.structuredContent["deleted"] is True
+    result = await mcp_session.call_tool("delete_notion_by_id", {"id": test_id})
+    assert result.structuredContent["deleted"] is True
+
+
+

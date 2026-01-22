@@ -16,6 +16,7 @@ from ..gremlin_helpers import (
     filter_backward_relationships,
     reverse_backward_relationship_keys,
     read_vertex_with_edges,
+    delete_vertex_by_id
 )
 from ..validation import normalize_edge_label, normalize_label, validate_and_fix_properties
 
@@ -58,18 +59,6 @@ def register_vertex_tools(mcp: FastMCP) -> None:
                 g.V().hasLabel(canon).has("id", int(id)).properties(k).drop().iterate()
 
         return read_vertex_with_edges(ctx, label=canon, vertex_id=int(id))
-
-    # @mcp.tool()
-    def delete_vertex_by_id(ctx: Context[ServerSession, AppContext], label: str, id: int) -> dict[str, Any]:
-        """Delete a vertex (and all incident edges) by label + id."""
-        g = get_g(ctx)
-        canon = normalize_label(label)
-        exists = g.V().hasLabel(canon).has("id", int(id)).limit(1).toList()
-        if not exists:
-            return {"deleted": False, "reason": "not_found", "label": canon, "id": int(id)}
-
-        g.V().hasLabel(canon).has("id", int(id)).drop().iterate()
-        return {"deleted": True, "label": canon, "id": int(id)}
 
     # @mcp.tool()
     def list_vertices_by_label(ctx: Context[ServerSession, AppContext], label: str, limit: int = 1000, offset: int = 0) -> list[dict[str, Any]]:
@@ -223,5 +212,16 @@ def register_vertex_tools(mcp: FastMCP) -> None:
         try:
             g = get_g(ctx)
             return read_vertex_with_edges(g, id)
+        except Exception:
+            raise ToolError(traceback.format_exc())
+        
+    @mcp.tool()
+    def delete_notion_by_id(ctx: Context[ServerSession, AppContext], id: int) -> dict[str, Any]:
+        """
+        Delete notion by id.
+        """
+        try:
+            g = get_g(ctx)
+            return delete_vertex_by_id(g, id)
         except Exception:
             raise ToolError(traceback.format_exc())
