@@ -16,7 +16,7 @@ async def g():
 
 @pytest.mark.anyio
 async def test_create_vertex_and_connect_by_captions(g):
-    timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+    timestamp = datetime.datetime.now().strftime("%d.%m.%Y %H:%M:%S")
     test_caption = f"test_create_vertex_and_connect_by_captions_{timestamp}"
 
     result = create_vertex_and_connect_by_captions(g, "notion", {"caption": test_caption}, {"isSupportedBy": ["Jn 1:1"]}, {})

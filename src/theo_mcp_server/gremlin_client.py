@@ -31,7 +31,7 @@ async def app_lifespan(server: FastMCP) -> AsyncIterator[AppContext]:
         cfg.gremlin_traversal_source,
         transport_factory=lambda: AiohttpTransport(call_from_event_loop=True))
     
-    g = traversal().withRemote(conn)
+    g = traversal().with_remote(conn)
 
     try:
         yield AppContext(connection=conn, g=g)

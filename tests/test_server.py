@@ -32,7 +32,7 @@ async def test_get_notion_by_id(mcp_session):
 
 @pytest.mark.anyio
 async def test_create_notion(mcp_session):
-    timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+    timestamp = datetime.datetime.now().strftime("%d.%m.%Y %H:%M:%S")
     test_caption = f"test_create_notion_{timestamp}"
     result = await mcp_session.call_tool("create_notion", {"caption": test_caption, "relationships": {"isSupportedBy": ["Jn 1:1"]}})
     dict = result.structuredContent

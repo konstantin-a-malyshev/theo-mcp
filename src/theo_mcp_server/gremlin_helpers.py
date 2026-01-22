@@ -125,7 +125,7 @@ def create_vertex_and_connect_by_captions(
             e = normalize_edge_label(edge_label)
             for cap in captions:
                 target = get_unique_vertex_by_caption(g, cap)
-                g.V(target["internal_id"]).as_("a") \
+                g.V(new_internal_id).as_("a") \
                     .V(target["internal_id"]).as_("b") \
                     .add_e(e).from_("a").to("b") \
                     .iterate()
@@ -143,8 +143,8 @@ def create_vertex_and_connect_by_captions(
             e = normalize_edge_label(edge_label)
             for cap in captions:
                 source = get_unique_vertex_by_caption(g, cap)
-                g.V(source["internal_id"]).as_("a") \
-                    .V(new_internal_id).as_("b") \
+                g.V(new_internal_id).as_("a") \
+                    .V(source["internal_id"]).as_("b") \
                     .addE(e).from_("a").to("b") \
                     .iterate()
                 
