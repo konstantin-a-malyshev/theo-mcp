@@ -196,7 +196,7 @@ def register_vertex_tools(mcp: FastMCP) -> None:
         """
         try:
             g = get_g(ctx)
-            ids = g.V().has("caption", caption).id_().toList()
+            ids = g.V().has("caption", caption).hasLabel("verse").id_().toList()
             if not ids:
                 raise ValueError(f"Verse not found: caption={caption}")
             
@@ -216,12 +216,30 @@ def register_vertex_tools(mcp: FastMCP) -> None:
             raise ToolError(traceback.format_exc())
         
     @mcp.tool()
-    def delete_notion_by_id(ctx: Context[ServerSession, AppContext], id: int) -> dict[str, Any]:
+    def get_notion_by_caption(ctx: Context[ServerSession, AppContext], caption: str) -> dict[str, Any]:
         """
-        Delete notion by id.
+        Get notion by caption.
         """
         try:
             g = get_g(ctx)
-            return delete_vertex_by_id(g, id)
+            ids = g.V().has("caption", caption).hasLabel("notion").id_().toList()
+            if not ids:
+                raise ValueError(f"Notion not found: caption={caption}")
+
+            return read_vertex_with_edges(g, ids[0])
+        except Exception:
+            raise ToolError(traceback.format_exc())
+
+    @mcp.tool()
+    def delete_notion_by_caption(ctx: Context[ServerSession, AppContext], caption: str) -> dict[str, Any]:
+        """
+        Delete notion by caption.
+        """
+        try:
+            g = get_g(ctx)
+            ids = g.V().has("caption", caption).hasLabel("notion").id_().toList()
+            if not ids:
+                raise ValueError(f"Notion not found: caption={caption}")
+            return delete_vertex_by_id(g, ids[0])
         except Exception:
             raise ToolError(traceback.format_exc())

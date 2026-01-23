@@ -26,9 +26,16 @@ async def test_get_verse_by_caption(mcp_session):
 async def test_get_notion_by_id(mcp_session):
     result = await mcp_session.call_tool("get_notion_by_id", {"id": 122884320})
     dict = result.structuredContent
+    print(json.dumps(dict, indent=2, ensure_ascii=False))
+    assert dict.get('internal_id') == 122884320
 
-    # print(json.dumps(dict, indent=2, ensure_ascii=False))
 
+@pytest.mark.anyio
+async def test_get_notion_by_caption(mcp_session):
+    result = await mcp_session.call_tool("get_notion_by_caption", {"caption": "Тема \"Час Иисуса\""})
+    dict = result.structuredContent
+    print(json.dumps(dict, indent=2, ensure_ascii=False))
+    assert dict.get('caption') == "Тема \"Час Иисуса\""
 
 @pytest.mark.anyio
 async def test_create_notion(mcp_session):
@@ -43,8 +50,10 @@ async def test_create_notion(mcp_session):
     from_result = await mcp_session.call_tool("create_notion", {"caption": from_caption})
     test_result = await mcp_session.call_tool("create_notion", {"caption": test_caption, "relationships": {"isSupportedBy": [to_caption], "supports": [from_caption]}})
 
-    to_id =  to_result.structuredContent["created"]["internal_id"]
-    from_id = from_result.structuredContent["created"]["internal_id"]
+    to_caption =  to_result.structuredContent["created"]["caption"]
+    from_caption = from_result.structuredContent["created"]["caption"]
+    test_caption = test_result.structuredContent["created"]["caption"]
+
     test_id = test_result.structuredContent["created"]["internal_id"]
 
     test_vertex = await mcp_session.call_tool("get_notion_by_id", {"id": test_id})
@@ -55,11 +64,11 @@ async def test_create_notion(mcp_session):
 
     # print(json.dumps(test_vertex.structuredContent, indent=2, ensure_ascii=False))
 
-    result = await mcp_session.call_tool("delete_notion_by_id", {"id": to_id})
+    result = await mcp_session.call_tool("delete_notion_by_caption", {"caption": to_caption})
     assert result.structuredContent["deleted"] is True
-    result = await mcp_session.call_tool("delete_notion_by_id", {"id": from_id})
+    result = await mcp_session.call_tool("delete_notion_by_caption", {"caption": from_caption})
     assert result.structuredContent["deleted"] is True
-    result = await mcp_session.call_tool("delete_notion_by_id", {"id": test_id})
+    result = await mcp_session.call_tool("delete_notion_by_caption", {"caption": test_caption})
     assert result.structuredContent["deleted"] is True
 
 
