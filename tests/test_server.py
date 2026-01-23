@@ -71,5 +71,10 @@ async def test_create_notion(mcp_session):
     result = await mcp_session.call_tool("delete_notion_by_caption", {"caption": test_caption})
     assert result.structuredContent["deleted"] is True
 
-
+@pytest.mark.anyio
+async def test_get_notion_group_by_caption(mcp_session):
+    result = await mcp_session.call_tool("get_notion_group_by_caption", {"caption": "Евангелие от Иоанна"})
+    dict = result.structuredContent
+    print(json.dumps(dict, indent=2, ensure_ascii=False))
+    assert dict.get('caption') == "Евангелие от Иоанна"
 
