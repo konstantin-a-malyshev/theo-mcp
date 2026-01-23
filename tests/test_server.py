@@ -78,3 +78,31 @@ async def test_get_notion_group_by_caption(mcp_session):
     print(json.dumps(dict, indent=2, ensure_ascii=False))
     assert dict.get('caption') == "Евангелие от Иоанна"
 
+@pytest.mark.anyio
+async def test_create_relationship(mcp_session):
+    prefix = "test_create_relationship"
+    timestamp = datetime.datetime.now().strftime("%d.%m.%Y %H:%M:%S")
+
+    from_caption = f"{prefix}_FROM_{timestamp}"
+    to_caption = f"{prefix}_TO_{timestamp}"
+
+    from_result = await mcp_session.call_tool("create_notion", {"caption": from_caption})
+    to_result   = await mcp_session.call_tool("create_notion", {"caption": to_caption})
+
+    result = await mcp_session.call_tool("create_relationship", {
+        "relationship": "refersTo",
+        "sourceCaption": from_caption,
+        "targetCaption": to_caption
+    })
+
+    from_vertex = await mcp_session.call_tool("get_notion_by_caption", {"caption": from_caption})
+    from_vertex = from_vertex.structuredContent
+
+    print(json.dumps(from_vertex, indent=2, ensure_ascii=False))
+
+    assert any(edge for edge in from_vertex["relationships"]['refersTo'] if edge["caption"] == to_caption)
+
+    result = await mcp_session.call_tool("delete_notion_by_caption", {"caption": from_caption})
+    assert result.structuredContent["deleted"] is True
+    result = await mcp_session.call_tool("delete_notion_by_caption", {"caption": to_caption})
+    assert result.structuredContent["deleted"] is True

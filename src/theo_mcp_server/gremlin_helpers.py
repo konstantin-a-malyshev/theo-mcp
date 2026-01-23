@@ -110,51 +110,27 @@ def create_vertex_and_connect_by_captions(
     # Try to ensure that all the targets/sources exist first
     if edges_out:
         for edge_label, captions in edges_out.items():
-            e = normalize_edge_label(edge_label)
             for cap in captions:
                 get_unique_vertex_by_caption(g, cap)
     if edges_in:
         for edge_label, captions in edges_in.items():
-            e = normalize_edge_label(edge_label)
             for cap in captions:
                 get_unique_vertex_by_caption(g, cap)
             
     # Now create the edges
     if edges_out:
         for edge_label, captions in edges_out.items():
-            e = normalize_edge_label(edge_label)
             for cap in captions:
                 target = get_unique_vertex_by_caption(g, cap)
-                g.V(new_internal_id).as_("a") \
-                    .V(target["internal_id"]).as_("b") \
-                    .add_e(e).from_("a").to("b") \
-                    .iterate()
-                
-                results["edges_created"].append(
-                    {
-                        "edge_label": e,
-                        "out": {"label": created["label"], "internalid": created.get("internal_id"), "caption": created.get("caption")},
-                        "in": {"label": target["label"], "internalid": target.get("internal_id"), "caption": target.get("caption")},
-                    }
-                )
+                result = create_edge(g, edge_label, new_internal_id, target["internal_id"])
+                results["edges_created"].append(result)
 
     if edges_in:
         for edge_label, captions in edges_in.items():
-            e = normalize_edge_label(edge_label)
             for cap in captions:
                 source = get_unique_vertex_by_caption(g, cap)
-                g.V(new_internal_id).as_("a") \
-                    .V(source["internal_id"]).as_("b") \
-                    .addE(e).from_("b").to("a") \
-                    .iterate()
-                
-                results["edges_created"].append(
-                    {
-                        "edge_label": e,
-                        "out": {"label": source["label"], "id": source.get("id"), "caption": source.get("caption")},
-                        "in": {"label": created["label"], "id": created.get("id"), "caption": created.get("caption")},
-                    }
-                )
+                result = create_edge(g, edge_label, source["internal_id"], new_internal_id)
+                results["edges_created"].append(result)
     return results
 
 def create_vertex(g: GraphTraversalSource, label: str, properties: dict[str, Any]) -> dict[str, Any]:
@@ -216,3 +192,35 @@ def delete_vertex_by_id(g: GraphTraversalSource, id: int) -> dict[str, Any]:
 
     g.V(id).drop().iterate()
     return {"deleted": True, "id": int(id)}
+
+def is_vertex_existing(g: GraphTraversalSource, id: int) -> bool:
+    """Check if a vertex exists by id."""
+    raw = g.V(id).valueMap(True).toList()
+    return bool(raw)
+
+def get_vertex_by_id(g: GraphTraversalSource, id: int) -> dict[str, Any]:
+    """Get a vertex by id."""
+    raw = g.V(id).valueMap(True).toList()
+    if not raw:
+        raise ValueError(f"Vertex not found: id={id}")
+    return flatten_value_map(raw[0])
+
+def create_edge(g: GraphTraversalSource, edge_label: str, source_vertex_id: int, target_vertex_id: int) -> dict[str, Any]:
+    """Connect two existing vertices with an edge."""
+    e = normalize_edge_label(edge_label)
+
+    source = get_vertex_by_id(g, source_vertex_id)
+    target = get_vertex_by_id(g, target_vertex_id)
+
+    g.V(source_vertex_id).as_("a") \
+        .V(target_vertex_id).as_("b") \
+        .add_e(e).from_("a").to("b") \
+        .iterate()
+
+    return {
+        "edge_created": {
+            "edge_label": e,
+            "source": {"label": source["label"], "internal_id": source.get("id"), "caption": source.get("caption")},
+            "target": {"label": target["label"], "internal_id": target.get("id"), "caption": target.get("caption")},
+        }
+    }

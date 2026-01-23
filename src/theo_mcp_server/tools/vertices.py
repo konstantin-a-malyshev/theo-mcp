@@ -16,7 +16,9 @@ from ..gremlin_helpers import (
     filter_backward_relationships,
     reverse_backward_relationship_keys,
     read_vertex_with_edges,
-    delete_vertex_by_id
+    delete_vertex_by_id,
+    get_unique_vertex_by_caption,
+    create_edge
 )
 from ..validation import normalize_edge_label, normalize_label, validate_and_fix_properties
 
@@ -269,5 +271,21 @@ def register_vertex_tools(mcp: FastMCP) -> None:
             if not ids:
                 raise ValueError(f"Notion group not found: caption={caption}")
             return read_vertex_with_edges(g, ids[0])
+        except Exception:
+            raise ToolError(traceback.format_exc())
+        
+    @mcp.tool()
+    def create_relationship(
+        ctx: Context[ServerSession, AppContext],
+        relationship: str,
+        sourceCaption: str,
+        targetCaption: str,
+    ) -> dict[str, Any]:
+        """Create a relationship of type `relationship` going from a vertex with `sourceCaption` to a vertex with `targetCaption."""
+        try:
+            g = get_g(ctx)
+            source = get_unique_vertex_by_caption(g, sourceCaption)
+            target = get_unique_vertex_by_caption(g, targetCaption)
+            return create_edge(g, relationship, source["internal_id"], target["internal_id"])
         except Exception:
             raise ToolError(traceback.format_exc())
