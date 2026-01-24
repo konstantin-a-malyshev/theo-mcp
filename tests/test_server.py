@@ -106,3 +106,35 @@ async def test_create_relationship(mcp_session):
     assert result.structuredContent["deleted"] is True
     result = await mcp_session.call_tool("delete_notion_by_caption", {"caption": to_caption})
     assert result.structuredContent["deleted"] is True
+
+@pytest.mark.anyio
+async def test_search_notion_groups_and_notions(mcp_session):
+    prefix = "test_search_notion_groups_and_notions"
+    timestamp = datetime.datetime.now().strftime("%d.%m.%Y %H:%M:%S")
+
+    notion_group_caption = f"{prefix}_GROUP_{timestamp}"
+    notion_caption       = f"{prefix}_NOTION_{timestamp}"
+
+    group_result = await mcp_session.call_tool("create_notion_group", {"caption": notion_group_caption})
+    notion_result = await mcp_session.call_tool("create_notion", {"caption": notion_caption})
+
+    search_result = await mcp_session.call_tool("search_notion_groups_and_notions", {
+        "searchText": timestamp,
+        "limit": 10
+    })
+
+    dicts = search_result.structuredContent
+
+    print(json.dumps(dicts, indent=2, ensure_ascii=False))
+
+    found = dicts.get("result")
+
+    print(json.dumps(found, indent=2, ensure_ascii=False))
+
+
+    assert any(d for d in found if d["caption"] == notion_group_caption or d["caption"] == notion_caption)
+
+    result = await mcp_session.call_tool("delete_notion_by_caption", {"caption": notion_caption})
+    assert result.structuredContent["deleted"] is True
+    result = await mcp_session.call_tool("delete_notion_group_by_caption", {"caption": notion_group_caption})
+    assert result.structuredContent["deleted"] is True

@@ -6,7 +6,7 @@ from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
 from theo_mcp_server.gremlin_client import get_g_for_tests
-from theo_mcp_server.gremlin_helpers import create_vertex_and_connect_by_captions, delete_vertex_by_id, read_vertex_with_edges
+from theo_mcp_server.gremlin_helpers import create_vertex_and_connect_by_captions, delete_vertex_by_id, read_vertex_with_edges, search_vertices
 
 server_params = StdioServerParameters(command="theo-mcp")
 
@@ -45,3 +45,9 @@ async def test_create_vertex_and_connect_by_captions(g):
     assert result["deleted"] is True
     result = delete_vertex_by_id(g, test_id)
     assert result["deleted"] is True
+
+@pytest.mark.anyio
+async def test_search_vertices(g):
+    results = search_vertices(g, ["notion"], "Иоан", limit=10)
+    print(json.dumps(results, indent=2, ensure_ascii=False))
+    assert len(results) > 0

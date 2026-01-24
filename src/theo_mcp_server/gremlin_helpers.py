@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from gremlin_python.process.graph_traversal import __
-from gremlin_python.process.traversal import T
+from gremlin_python.process.traversal import T, P, TextP
 from gremlin_python.process.graph_traversal import GraphTraversalSource
 from mcp.server.fastmcp import Context
 from mcp.server.session import ServerSession
@@ -70,6 +70,13 @@ def flatten_value_map(raw: dict[Any, Any]) -> dict[str, Any]:
             else:
                 out[key] = v
     return out
+
+def search_vertices(g: GraphTraversalSource, types: list[str], search_text: str, limit: int = 10) -> list[dict[str, Any]]:
+    """Search for vertices by substring within specified types."""
+    t = g.V().has('type', P.within(types)).has('caption', TextP.containing(search_text))
+
+    raw_list = t.limit(limit).valueMap(True).toList()
+    return [flatten_value_map(r) for r in raw_list]
 
 def get_vertices_by_caption(g: GraphTraversalSource, caption: str, limit: int = 10) -> list[dict[str, Any]]:
     """Resolve a vertex caption into up to `limit` matches."""
@@ -141,7 +148,7 @@ def create_vertex(g: GraphTraversalSource, label: str, properties: dict[str, Any
     if existing:
         raise ValueError(f"Vertex already exists: label={label} caption={props['caption']}")
 
-    t = g.addV(label)
+    t = g.addV(label).property("type", label)
     for k, v in props.items():
         t = t.property(k, v)
     created_raw = t.valueMap(True).next()

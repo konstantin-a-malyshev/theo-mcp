@@ -18,7 +18,8 @@ from ..gremlin_helpers import (
     read_vertex_with_edges,
     delete_vertex_by_id,
     get_unique_vertex_by_caption,
-    create_edge
+    create_edge,
+    search_vertices
 )
 from ..validation import normalize_edge_label, normalize_label, validate_and_fix_properties
 
@@ -118,6 +119,32 @@ def register_vertex_tools(mcp: FastMCP) -> None:
             edges_out = filter_direct_relationships(relationships or {})
             g = get_g(ctx)
             return create_vertex_and_connect_by_captions(g, "notion", {"caption": caption}, edges_out, edges_in)
+        except Exception:
+            raise ToolError(traceback.format_exc())
+
+    @mcp.tool()
+    def create_notion_group(ctx: Context[ServerSession, AppContext], caption: str, relationships: dict[str, list[str]] | None = None) -> dict[str, Any]:
+        """
+            Create a notion group vertex.
+            
+            The following relationships can be specified in the `relationships` parameter:
+            - isSupportedBy
+            - supports
+            - isChallengedBy
+            - challenges
+            - refersTo
+            - isReferredBy
+            - contains
+            - isContainedIn
+
+            Each relationship should map to a list of captions of existing notions, verses, notionGroups, books, verseGroups, or persons.       
+        """
+        try:
+            edges_in = filter_backward_relationships(relationships or {})
+            edges_in = reverse_backward_relationship_keys(edges_in)
+            edges_out = filter_direct_relationships(relationships or {})
+            g = get_g(ctx)
+            return create_vertex_and_connect_by_captions(g, "notionGroup", {"caption": caption}, edges_out, edges_in)
         except Exception:
             raise ToolError(traceback.format_exc())
 
@@ -261,6 +288,20 @@ def register_vertex_tools(mcp: FastMCP) -> None:
             raise ToolError(traceback.format_exc())
 
     @mcp.tool()
+    def delete_notion_group_by_caption(ctx: Context[ServerSession, AppContext], caption: str) -> dict[str, Any]:
+        """
+        Delete notion group by caption.
+        """
+        try:
+            g = get_g(ctx)
+            ids = g.V().has("caption", caption).hasLabel("notionGroup").id_().toList()
+            if not ids:
+                raise ValueError(f"Notion group not found: caption={caption}")
+            return delete_vertex_by_id(g, ids[0])
+        except Exception:
+            raise ToolError(traceback.format_exc())
+
+    @mcp.tool()
     def get_notion_group_by_caption(ctx: Context[ServerSession, AppContext], caption: str) -> dict[str, Any]:
         """
         Read notion group by caption.
@@ -287,5 +328,18 @@ def register_vertex_tools(mcp: FastMCP) -> None:
             source = get_unique_vertex_by_caption(g, sourceCaption)
             target = get_unique_vertex_by_caption(g, targetCaption)
             return create_edge(g, relationship, source["internal_id"], target["internal_id"])
+        except Exception:
+            raise ToolError(traceback.format_exc())
+        
+    @mcp.tool()
+    def search_notion_groups_and_notions(
+        ctx: Context[ServerSession, AppContext],
+        searchText: str,
+        limit: int = 100
+    ) -> list[dict[str, Any]]:
+        """Search for notion groups and notions by substring."""
+        try:
+            g = get_g(ctx)
+            return search_vertices(g, ["notion", "notionGroup"], searchText, limit)
         except Exception:
             raise ToolError(traceback.format_exc())
