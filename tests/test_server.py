@@ -138,3 +138,13 @@ async def test_search_notion_groups_and_notions(mcp_session):
     assert result.structuredContent["deleted"] is True
     result = await mcp_session.call_tool("delete_notion_group_by_caption", {"caption": notion_group_caption})
     assert result.structuredContent["deleted"] is True
+
+@pytest.mark.anyio
+async def test_get_verses_by_captions(mcp_session):
+    captions = ["Jn 1:1", "Jn 1:2", "Jn 1:3"]
+    result = await mcp_session.call_tool("get_verses_by_captions", {"captions": captions})
+    dicts = result.structuredContent.get("result")
+
+    print(json.dumps(dicts, indent=2, ensure_ascii=False))
+
+    assert len(dicts) == 3

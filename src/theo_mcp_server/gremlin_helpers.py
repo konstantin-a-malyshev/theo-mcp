@@ -78,6 +78,11 @@ def search_vertices(g: GraphTraversalSource, types: list[str], search_text: str,
     raw_list = t.limit(limit).valueMap(True).toList()
     return [flatten_value_map(r) for r in raw_list]
 
+def get_vertices_by_captions(g: GraphTraversalSource, captions: list[str]) -> list[dict[str, Any]]:
+    t = g.V().has("caption", P.within(captions))
+    raw_list = t.valueMap(True).toList()
+    return [flatten_value_map(r) for r in raw_list]
+
 def get_vertices_by_caption(g: GraphTraversalSource, caption: str, limit: int = 10) -> list[dict[str, Any]]:
     """Resolve a vertex caption into up to `limit` matches."""
     t = g.V().has("caption", caption)

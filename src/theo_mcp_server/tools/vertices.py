@@ -14,6 +14,7 @@ from ..gremlin_helpers import (
     create_vertex_and_connect_by_captions,
     filter_direct_relationships,
     filter_backward_relationships,
+    get_vertices_by_captions,
     reverse_backward_relationship_keys,
     read_vertex_with_edges,
     delete_vertex_by_id,
@@ -148,7 +149,102 @@ def register_vertex_tools(mcp: FastMCP) -> None:
         except Exception:
             raise ToolError(traceback.format_exc())
 
-    @mcp.tool()                                                 
+    @mcp.tool()
+    def get_verses_by_captions(ctx: Context[ServerSession, AppContext], captions: list[str]) -> list[dict[str, Any]]:
+        """
+        Get verses by exact caption matches. 
+        
+        The verse caption has the format `{book} {chapter}:{verse number}`, e. g. Jn 1:11 or 2Pet 2:13.
+
+        The book is a short abbreviation of a bible book. Here is a complete list of possible book abbreviations:
+
+        - Acts (for Acts),
+        - 2Pet (for II Peter),
+        - Gal (for Galatians),
+        - 1Kgs (for I Kings),
+        - Ps (for Psalms),
+        - 1Mac (for I Maccabees),
+        - Esth (for Esther),
+        - Hab (for Habakkuk),
+        - Hag (for Haggai),
+        - Jdt (for Judith),
+        - Bar (for Baruch),
+        - Zech (for Zechariah),
+        - 1Cor (for I Corinthians),
+        - Hos (for Hosea),
+        - 1Mac (for III Maccabees),
+        - Lk (for Luke),
+        - 1Sam (for I Samuel),
+        - Judg (for Judges),
+        - Eccl (for Ecclesiastes),
+        - Jonah (for Jonah),
+        - Jn (for John),
+        - Mt (for Matthew),
+        - Prov (for Proverbs),
+        - Lam (for Lamentations),
+        - 2Kgs (for II Kings),
+        - 1Chr (for I Chronicles),
+        - Amos (for Amos),
+        - 1Th (for I Thessalonians),
+        - Phlm (for Philemon),
+        - 2Tim (for II Timothy),
+        - Zeph (for Zephaniah),
+        - Nah (for Nahum),
+        - Joel (for Joel),
+        - Rom (for Romans),
+        - Gen (for Genesis),
+        - Jude (for Jude),
+        - 2Cor (for II Corinthians),
+        - Heb (for Hebrews),
+        - 2Mac (for II Maccabees),
+        - Wis (for Wisdom),
+        - 2Jn (for II John),
+        - Tob (for Tobit),
+        - Sir (for Sirach),
+        - Deut (for Deuteronomy),
+        - Mal (for Malachi),
+        - PrMan (for Prayer of Manasses),
+        - 2Chr (for II Chronicles),
+        - Ezr (for Ezra),
+        - Dan (for Daniel),
+        - 1Jn (for I John),
+        - Ruth (for Ruth),
+        - Col (for Colossians),
+        - SS (for Song of Solomon),
+        - Job (for Job),
+        - EpJer (for Epistle of Jeremiah),
+        - Mic (for Micah),
+        - Jas (for James),
+        - Phil (for Philippians),
+        - Eph (for Ephesians),
+        - 1Tim (for I Timothy),
+        - Ex (for Exodus),
+        - 3Jn (for III John),
+        - Tit (for Titus),
+        - Ez (for Ezekiel),
+        - Num (for Numbers),
+        - Mk (for Mark),
+        - 2Th (for II Thessalonians),
+        - Obad (for Obadiah),
+        - 1Esd (for I Esdras),
+        - 2Esd (for II Esdras),
+        - 2Sam (for II Samuel),
+        - 1Pet (for I Peter),
+        - Josh (for Joshua),
+        - Lev (for Leviticus),
+        - Rev (for Revelation of John),
+        - Jer (for Jeremiah),
+        - Is (for Isaiah),
+        - Neh (for Nehemiah).
+        """
+
+        try:
+            g = get_g(ctx)
+            return get_vertices_by_captions(g, captions)
+        except Exception:
+            raise ToolError(traceback.format_exc())
+
+    @mcp.tool()
     def get_verse_by_caption(ctx: Context[ServerSession, AppContext], caption: str) -> dict[str, Any]:
         """
         Get verse by exact caption match. 
@@ -341,5 +437,78 @@ def register_vertex_tools(mcp: FastMCP) -> None:
         try:
             g = get_g(ctx)
             return search_vertices(g, ["notion", "notionGroup"], searchText, limit)
+        except Exception:
+            raise ToolError(traceback.format_exc())
+        
+    @mcp.tool()
+    def get_quotation_by_caption(
+        ctx: Context[ServerSession, AppContext],
+        caption: str
+    ) -> dict[str, Any]:
+        """Get quotation by caption."""
+        try:
+            g = get_g(ctx)
+            ids = g.V().has("caption", caption).hasLabel("quotation").id_().toList()
+            if not ids:
+                raise ValueError(f"Quotation not found: caption={caption}")
+            return read_vertex_with_edges(g, ids[0])
+        except Exception:
+            raise ToolError(traceback.format_exc())
+        
+    @mcp.tool()
+    def create_quotation(
+        ctx: Context[ServerSession, AppContext],
+        caption: str,
+        text: str,
+        book: str,
+        position: str,
+        relationships: dict[str, list[str]] | None = None
+    ) -> dict[str, Any]:
+        """
+            Create a quotation.
+            
+            The following relationships can be specified in the `relationships` parameter:
+            - isContainedIn
+
+            Each relationship should map to a list of captions of existing books or persons.       
+        """
+        try:
+            edges_in = filter_backward_relationships(relationships or {})
+            edges_in = reverse_backward_relationship_keys(edges_in)
+            edges_out = filter_direct_relationships(relationships or {})
+            g = get_g(ctx)
+            return create_vertex_and_connect_by_captions(g, "quotation", {"caption": caption, "text": text, "book": book, "position": position}, edges_out, edges_in)
+        except Exception:
+            raise ToolError(traceback.format_exc())
+
+    @mcp.tool()    
+    def delete_quotation_by_caption(
+        ctx: Context[ServerSession, AppContext],
+        caption: str
+    ) -> dict[str, Any]:
+        """
+        Delete quotation by caption.
+        """
+        try:
+            g = get_g(ctx)
+            ids = g.V().has("caption", caption).hasLabel("quotation").id_().toList()
+            if not ids:
+                raise ValueError(f"Quotation not found: caption={caption}")
+            return delete_vertex_by_id(g, ids[0])
+        except Exception:
+            raise ToolError(traceback.format_exc())
+        
+    @mcp.tool()    
+    def get_book_by_caption(
+        ctx: Context[ServerSession, AppContext],
+        caption: str
+    ) -> dict[str, Any]:
+        """Get book by caption."""
+        try:
+            g = get_g(ctx)
+            ids = g.V().has("caption", caption).hasLabel("book").id_().toList()
+            if not ids:
+                raise ValueError(f"Book not found: caption={caption}")
+            return read_vertex_with_edges(g, ids[0])
         except Exception:
             raise ToolError(traceback.format_exc())
