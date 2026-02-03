@@ -148,3 +148,12 @@ async def test_get_verses_by_captions(mcp_session):
     print(json.dumps(dicts, indent=2, ensure_ascii=False))
 
     assert len(dicts) == 3
+
+@pytest.mark.anyio
+async def test_get_new_quotations(mcp_session):
+    result = await mcp_session.call_tool("get_new_quotations", {"since_id": 0, "limit": 5})
+    dicts = result.structuredContent.get("result")
+
+    print(json.dumps(dicts, indent=2, ensure_ascii=False))
+
+    assert len(dicts) >= 0

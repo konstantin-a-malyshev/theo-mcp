@@ -5,7 +5,7 @@ from typing import Any
 import traceback 
 
 from gremlin_python.process.graph_traversal import __
-from gremlin_python.process.traversal import T
+from gremlin_python.process.traversal import T, Order
 from mcp.server.fastmcp import Context, FastMCP
 from mcp.server.session import ServerSession
 from mcp.server.fastmcp.exceptions import ToolError
@@ -15,12 +15,14 @@ from ..gremlin_helpers import (
     filter_direct_relationships,
     filter_backward_relationships,
     get_vertices_by_captions,
+    get_vertices_by_type,
     reverse_backward_relationship_keys,
     read_vertex_with_edges,
     delete_vertex_by_id,
     get_unique_vertex_by_caption,
     create_edge,
-    search_vertices
+    search_vertices,
+    flatten_value_map
 )
 from ..validation import normalize_edge_label, normalize_label, validate_and_fix_properties
 
@@ -478,6 +480,17 @@ def register_vertex_tools(mcp: FastMCP) -> None:
             edges_out = filter_direct_relationships(relationships or {})
             g = get_g(ctx)
             return create_vertex_and_connect_by_captions(g, "quotation", {"caption": caption, "text": text, "book": book, "position": position}, edges_out, edges_in)
+        except Exception:
+            raise ToolError(traceback.format_exc())
+        
+    @mcp.tool()
+    def get_new_quotations(ctx: Context[ServerSession, AppContext], limit: int) -> list[dict[str, Any]]:
+        """Get newly created quotations."""
+        try:
+            g = get_g(ctx)
+            t = g.V().has('type', "quotation").order().by("importIndex", Order.desc)
+            raw_list = t.limit(limit).valueMap(True).toList()
+            return [flatten_value_map(r) for r in raw_list]
         except Exception:
             raise ToolError(traceback.format_exc())
 
