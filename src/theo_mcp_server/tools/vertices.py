@@ -412,6 +412,23 @@ def register_vertex_tools(mcp: FastMCP) -> None:
             return read_vertex_with_edges(g, ids[0])
         except Exception:
             raise ToolError(traceback.format_exc())
+
+    @mcp.tool()
+    def create_relationships(
+        ctx: Context[ServerSession, AppContext],
+        relationships: list[dict[str, str]]) -> list[dict[str, Any]]:
+        """Create multiple relationships. Each relationship should be a dict with keys: relationship, sourceCaption, targetCaption."""
+        results = []
+        try:
+            g = get_g(ctx)
+            for rel in relationships:
+                source = get_unique_vertex_by_caption(g, rel["sourceCaption"])
+                target = get_unique_vertex_by_caption(g, rel["targetCaption"])
+                result = create_edge(g, rel["relationship"], source["internal_id"], target["internal_id"])
+                results.append(result)
+            return results
+        except Exception:
+            raise ToolError(traceback.format_exc())
         
     @mcp.tool()
     def create_relationship(
