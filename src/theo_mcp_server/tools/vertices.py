@@ -488,11 +488,30 @@ def register_vertex_tools(mcp: FastMCP) -> None:
         """Get newly created quotations."""
         try:
             g = get_g(ctx)
-            t = g.V().has('type', "quotation").order().by("importIndex", Order.desc)
+            t = g.V().has('type', "quotation").has('status', 'new').order().by("importIndex", Order.desc)
             raw_list = t.limit(limit).valueMap(True).toList()
             return [flatten_value_map(r) for r in raw_list]
         except Exception:
             raise ToolError(traceback.format_exc())
+        
+    @mcp.tool()
+    def set_quotation_as_processed(
+        ctx: Context[ServerSession, AppContext],
+        caption: str
+    ) -> dict[str, Any]:
+        """
+        Set quotation as processed by caption.
+        """
+        try:
+            g = get_g(ctx)
+            ids = g.V().has("caption", caption).hasLabel("quotation").id_().toList()
+            if not ids:
+                raise ValueError(f"Quotation not found: caption={caption}")
+            
+            g.V(ids[0]).property("status", "processed").iterate()
+            return read_vertex_with_edges(g, ids[0])
+        except Exception:
+            raise ToolError(traceback.format_exc()) 
 
     @mcp.tool()    
     def delete_quotation_by_caption(
