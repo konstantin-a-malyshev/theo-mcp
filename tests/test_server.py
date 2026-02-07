@@ -186,3 +186,27 @@ async def test_get_new_quotations(mcp_session):
     print(json.dumps(dicts, indent=2, ensure_ascii=False))
 
     assert len(dicts) >= 0
+
+@pytest.mark.anyio
+async def test_get_verse_group_by_caption(mcp_session):
+    result = await mcp_session.call_tool("get_verse_group_by_caption", {"caption": "Jn 11:51-53"})
+    dict = result.structuredContent
+    print(json.dumps(dict, indent=2, ensure_ascii=False))
+    assert dict.get('caption') == "Jn 11:51-53"
+
+@pytest.mark.anyio
+async def test_create_verse_group(mcp_session):
+    prefix = "test_create_verse_group Jn 1:1-2 "
+    timestamp = datetime.datetime.now().strftime("%d.%m.%Y %H:%M:%S")
+
+    caption = f"{prefix}_{timestamp}"
+
+    result = await mcp_session.call_tool("create_verse_group", {"caption": caption, "verses": ["Jn 1:1", "Jn 1:2"]})
+    created_caption = result.structuredContent["created"]["caption"]
+
+    print(json.dumps(result.structuredContent, indent=2, ensure_ascii=False))
+
+    assert created_caption == caption
+
+    result = await mcp_session.call_tool("delete_verse_group_by_caption", {"caption": caption})
+    assert result.structuredContent["deleted"] is True

@@ -344,6 +344,83 @@ def register_vertex_tools(mcp: FastMCP) -> None:
             return read_vertex_with_edges(g, ids[0])
         except Exception:
             raise ToolError(traceback.format_exc())
+        
+    @mcp.tool()
+    def get_verse_group_by_caption(ctx: Context[ServerSession, AppContext], caption: str) -> dict[str, Any]:
+        """
+        Get verse group existing in the database by exact caption match. The rules for verse caption are the same as for `get_verse_by_caption`, 
+        plus the following additional rules:
+
+        If the verse group contains only one verse, its caption should be the same as the verse caption. 
+        
+        If the verse group contains multiple successive verses from one chapter, its caption should be 
+        in the format `{book} {chapter}:{verse number}-{verse number}`, 
+        e. g. Jn 1:11-13 or 2Pet 2:13-15.
+
+        If the verse group contains multiple successive verses from multiple chapters, its caption 
+        should be in the format `{book} {chapter}:{verse number}-{chapter}:{verse number}`, 
+        e. g. Jn 1:11-3:13 or 2Pet 1:1-2:15.
+
+        If the verse group contains multiple verses, that are not successive, but are from the same chapter,
+        its caption should be in the format `{book} {chapter}:{verse number},{verse number},{verse number}`, 
+        e. g. Jn 1:11,13,15 or 2Pet 2:13,15,18.
+
+        If the verse group contains multiple verses, that are not successive, and are from different chapters,
+        its caption should be in the format `{book} {chapter}:{verse number},{chapter}:{verse number},{chapter}:{verse number}`,
+        e. g. Jn 1:11,2:13,3:15 or 2Pet 1:1,2:15,3:18.
+
+        The group of unsuccessive verses can also contain subgroups of successive verses, in which case the caption should combine the rules described above, 
+        e. g. Jn 1:11-13,2:15,3:15-18 or 2Pet 1:1-2:15,3:18.
+        """
+        try:
+            g = get_g(ctx)
+            ids = g.V().has("caption", caption).hasLabel("verseGroup").id_().toList()
+            if not ids:
+                raise ValueError(f"Verse group not found: caption={caption}")
+            
+            return read_vertex_with_edges(g, ids[0])
+        except Exception:
+            raise ToolError(traceback.format_exc())
+        
+    @mcp.tool()
+    def create_verse_group(ctx: Context[ServerSession, AppContext], caption: str, relationships: dict[str, list[str]] | None = None) -> dict[str, Any]:
+        """
+            Create a verse group vertex.
+            
+            The following relationships can be specified in the `relationships` parameter:
+            - isSupportedBy
+            - supports
+            - isChallengedBy
+            - challenges
+            - refersTo
+            - isReferredBy
+            - contains
+            - isContainedIn
+
+            Each relationship should map to a list of captions of existing notions, verses, notionGroups, books, verseGroups, or persons.       
+        """
+        try:
+            edges_in = filter_backward_relationships(relationships or {})
+            edges_in = reverse_backward_relationship_keys(edges_in)
+            edges_out = filter_direct_relationships(relationships or {})
+            g = get_g(ctx)
+            return create_vertex_and_connect_by_captions(g, "verseGroup", {"caption": caption}, edges_out, edges_in)
+        except Exception:
+            raise ToolError(traceback.format_exc())
+        
+    @mcp.tool()
+    def delete_verse_group_by_caption(ctx: Context[ServerSession, AppContext], caption: str) -> dict[str, Any]:
+        """
+        Delete verse group by caption.
+        """
+        try:
+            g = get_g(ctx)
+            ids = g.V().has("caption", caption).hasLabel("verseGroup").id_().toList()
+            if not ids:
+                raise ValueError(f"Verse group not found: caption={caption}")
+            return delete_vertex_by_id(g, ids[0])
+        except Exception:
+            raise ToolError(traceback.format_exc())
 
     @mcp.tool()
     def get_notion_by_id(ctx: Context[ServerSession, AppContext], id: int) -> dict[str, Any]:

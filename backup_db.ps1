@@ -1,0 +1,1 @@
+scp -r cap:/opt/janusgraph/data ("backup_{0}" -f (Get-Date -Format "yyyyMMdd"))
