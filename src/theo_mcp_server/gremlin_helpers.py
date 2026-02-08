@@ -278,4 +278,10 @@ def build_notion_groups_tree(g: GraphTraversalSource, includeNotions: bool) -> d
         return tree
 
     return build_tree(paths)
+
+def change_caption(g: GraphTraversalSource, old_caption: str, new_caption: str) -> dict[str, Any]:
+    """Change the caption of a vertex."""
+    vertex = get_unique_vertex_by_caption(g, old_caption)
+    g.V(vertex["internal_id"]).property("caption", new_caption).iterate()
+    return {"updated": True, "internal_id": vertex["internal_id"], "new_caption": new_caption}
     

@@ -222,3 +222,23 @@ async def test_get_notion_groups_tree(mcp_session):
     print(json.dumps(result.structuredContent, indent=2, ensure_ascii=False))
     dicts = result.structuredContent
     assert len(dicts) > 0
+
+@pytest.mark.anyio
+async def test_change_caption(mcp_session):
+    prefix = "test_change_caption"
+    timestamp = datetime.datetime.now().strftime("%d.%m.%Y %H:%M:%S")
+
+    old_caption = f"{prefix}_OLD_{timestamp}"
+    new_caption = f"{prefix}_NEW_{timestamp}"
+
+    create_result = await mcp_session.call_tool("create_notion", {"caption": old_caption})
+    created_id = create_result.structuredContent["created"]["internal_id"]
+
+    change_result = await mcp_session.call_tool("change_caption", {"oldCaption": old_caption, "newCaption": new_caption})
+    print(json.dumps(change_result.structuredContent, indent=2, ensure_ascii=False))
+    assert change_result.structuredContent["updated"] is True
+    assert change_result.structuredContent["internal_id"] == created_id
+    assert change_result.structuredContent["new_caption"] == new_caption
+
+    delete_result = await mcp_session.call_tool("delete_notion_by_caption", {"caption": new_caption})
+    assert delete_result.structuredContent["deleted"] is True

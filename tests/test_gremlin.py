@@ -6,7 +6,7 @@ from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
 from theo_mcp_server.gremlin_client import get_g_for_tests
-from theo_mcp_server.gremlin_helpers import build_notion_groups_tree, create_vertex_and_connect_by_captions, delete_vertex_by_id, get_vertices_by_captions, read_vertex_with_edges, search_vertices
+from theo_mcp_server.gremlin_helpers import build_notion_groups_tree, change_caption, create_vertex_and_connect_by_captions, delete_vertex_by_id, get_vertices_by_captions, read_vertex_with_edges, search_vertices
 
 server_params = StdioServerParameters(command="theo-mcp")
 
@@ -66,3 +66,21 @@ async def test_build_notion_groups_tree(g):
     results = build_notion_groups_tree(g, includeNotions=True)
     print(json.dumps(results, indent=2, ensure_ascii=False))
     assert len(results) > 0    
+
+@pytest.mark.anyio
+async def test_change_caption(g):
+    prefix = "test_change_caption"
+    timestamp = datetime.datetime.now().strftime("%d.%m.%Y %H:%M:%S")
+    old_caption = f"{prefix}_OLD_{timestamp}"
+    new_caption = f"{prefix}_NEW_{timestamp}"
+
+    create_result = create_vertex_and_connect_by_captions(g, "notion", {"caption": old_caption}, None, None)
+    vertex_id = create_result["created"]["internal_id"]
+
+    change_result = change_caption(g, old_caption, new_caption)
+    assert change_result["updated"] is True
+    assert change_result["internal_id"] == vertex_id
+    assert change_result["new_caption"] == new_caption
+
+    delete_result = delete_vertex_by_id(g, vertex_id)
+    assert delete_result["deleted"] is True

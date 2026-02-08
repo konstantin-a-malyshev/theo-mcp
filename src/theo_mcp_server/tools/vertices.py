@@ -26,6 +26,7 @@ from ..gremlin_helpers import (
     flatten_value_map
 )
 from ..validation import normalize_edge_label, normalize_label, validate_and_fix_properties
+from theo_mcp_server import gremlin_helpers
 
 
 def register_vertex_tools(mcp: FastMCP) -> None:
@@ -656,5 +657,18 @@ def register_vertex_tools(mcp: FastMCP) -> None:
             if not ids:
                 raise ValueError(f"Book not found: caption={caption}")
             return read_vertex_with_edges(g, ids[0])
+        except Exception:
+            raise ToolError(traceback.format_exc())
+        
+    @mcp.tool()
+    def change_caption(
+        ctx: Context[ServerSession, AppContext],
+        oldCaption: str,
+        newCaption: str
+    ) -> dict[str, Any]:
+        """Change entity caption."""
+        try:
+            g = get_g(ctx)
+            return gremlin_helpers.change_caption(g, oldCaption, newCaption)
         except Exception:
             raise ToolError(traceback.format_exc())
