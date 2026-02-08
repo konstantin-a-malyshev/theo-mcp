@@ -11,6 +11,7 @@ from mcp.server.session import ServerSession
 from mcp.server.fastmcp.exceptions import ToolError
 from ..gremlin_client import AppContext, get_g
 from ..gremlin_helpers import (
+    build_notion_groups_tree,
     create_vertex_and_connect_by_captions,
     filter_direct_relationships,
     filter_backward_relationships,
@@ -148,6 +149,15 @@ def register_vertex_tools(mcp: FastMCP) -> None:
             edges_out = filter_direct_relationships(relationships or {})
             g = get_g(ctx)
             return create_vertex_and_connect_by_captions(g, "notionGroup", {"caption": caption}, edges_out, edges_in)
+        except Exception:
+            raise ToolError(traceback.format_exc())
+
+    @mcp.tool()
+    def get_notion_groups_tree(ctx: Context[ServerSession, AppContext]) -> dict[str, Any]:
+        """Get the whole tree of notion groups with their nested subgroups, but without contained notions."""
+        try:
+            g = get_g(ctx)
+            return build_notion_groups_tree(g)
         except Exception:
             raise ToolError(traceback.format_exc())
 

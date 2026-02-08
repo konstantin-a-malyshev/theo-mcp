@@ -6,7 +6,7 @@ from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
 from theo_mcp_server.gremlin_client import get_g_for_tests
-from theo_mcp_server.gremlin_helpers import create_vertex_and_connect_by_captions, delete_vertex_by_id, get_vertices_by_captions, read_vertex_with_edges, search_vertices
+from theo_mcp_server.gremlin_helpers import build_notion_groups_tree, create_vertex_and_connect_by_captions, delete_vertex_by_id, get_vertices_by_captions, read_vertex_with_edges, search_vertices
 
 server_params = StdioServerParameters(command="theo-mcp")
 
@@ -57,3 +57,9 @@ async def test_get_vertices_by_captions(g):
     results = get_vertices_by_captions(g, ["Jn 1:1", "Jn 1:2", "Jn 1:3"])
     print(json.dumps(results, indent=2, ensure_ascii=False))
     assert len(results) == 3
+
+@pytest.mark.anyio
+async def test_build_notion_groups_tree(g):
+    results = build_notion_groups_tree(g)
+    print(json.dumps(results, indent=2, ensure_ascii=False))
+    assert len(results) > 0

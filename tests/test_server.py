@@ -210,3 +210,13 @@ async def test_create_verse_group(mcp_session):
 
     result = await mcp_session.call_tool("delete_verse_group_by_caption", {"caption": caption})
     assert result.structuredContent["deleted"] is True
+
+@pytest.mark.anyio
+async def test_get_notion_groups_tree(mcp_session):
+    result = await mcp_session.call_tool("get_notion_groups_tree")
+    print(json.dumps(result.structuredContent, indent=2, ensure_ascii=False))
+    dicts = result.structuredContent
+
+    print(json.dumps(dicts, indent=2, ensure_ascii=False))
+
+    assert len(dicts) > 0
