@@ -157,9 +157,19 @@ def register_vertex_tools(mcp: FastMCP) -> None:
         """Get the whole tree of notion groups with their nested subgroups, but without contained notions."""
         try:
             g = get_g(ctx)
-            return build_notion_groups_tree(g)
+            return build_notion_groups_tree(g, includeNotions=False)
         except Exception:
             raise ToolError(traceback.format_exc())
+
+    @mcp.tool()
+    def get_notions_tree(ctx: Context[ServerSession, AppContext]) -> dict[str, Any]:
+        """Get the whole tree of notion groups with their nested subgroup, ending with nested notions."""
+        try:
+            g = get_g(ctx)
+            return build_notion_groups_tree(g, includeNotions=True)
+        except Exception:
+            raise ToolError(traceback.format_exc())
+
 
     @mcp.tool()
     def get_verses_by_captions(ctx: Context[ServerSession, AppContext], captions: list[str]) -> list[dict[str, Any]]:

@@ -243,16 +243,25 @@ def create_edge(g: GraphTraversalSource, edge_label: str, source_vertex_id: int,
         }
     }
 
-def build_notion_groups_tree(g: GraphTraversalSource) -> dict[str, Any]:
+def build_notion_groups_tree(g: GraphTraversalSource, includeNotions: bool) -> dict[str, Any]:
     """Get a multiple-level tree of all parentless "notionGroup" vertices with their nested "notionGroups" without nested notions."""
     
-    paths = (
-        g.V().has('type','notionGroup').not_(__.inE('contains')).as_('root')
-            .union(
-                __.identity().path().by('caption'),
-                __.repeat(__.out('contains').has('type', 'notionGroup')).emit().path().by('caption')
-            )
-    ).toList()
+    if includeNotions:
+        paths = (
+            g.V().has('type',P.within('notionGroup', 'notion')).not_(__.inE('contains')).as_('root')
+                .union(
+                    __.identity().path().by('caption'),
+                    __.repeat(__.out('contains').has('type', P.within('notionGroup', 'notion'))).emit().path().by('caption')
+                )
+        ).toList()
+    else:
+        paths = (
+            g.V().has('type','notionGroup').not_(__.inE('contains')).as_('root')
+                .union(
+                    __.identity().path().by('caption'),
+                    __.repeat(__.out('contains').has('type', 'notionGroup')).emit().path().by('caption')
+                )
+        ).toList()
 
     def build_tree(paths):
         tree = {}

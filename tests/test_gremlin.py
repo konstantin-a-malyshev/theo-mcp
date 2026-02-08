@@ -60,6 +60,9 @@ async def test_get_vertices_by_captions(g):
 
 @pytest.mark.anyio
 async def test_build_notion_groups_tree(g):
-    results = build_notion_groups_tree(g)
+    results = build_notion_groups_tree(g, includeNotions=False)
     print(json.dumps(results, indent=2, ensure_ascii=False))
     assert len(results) > 0
+    results = build_notion_groups_tree(g, includeNotions=True)
+    print(json.dumps(results, indent=2, ensure_ascii=False))
+    assert len(results) > 0    

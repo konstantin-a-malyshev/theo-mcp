@@ -216,7 +216,9 @@ async def test_get_notion_groups_tree(mcp_session):
     result = await mcp_session.call_tool("get_notion_groups_tree")
     print(json.dumps(result.structuredContent, indent=2, ensure_ascii=False))
     dicts = result.structuredContent
+    assert len(dicts) > 0
 
-    print(json.dumps(dicts, indent=2, ensure_ascii=False))
-
+    result = await mcp_session.call_tool("get_notions_tree")
+    print(json.dumps(result.structuredContent, indent=2, ensure_ascii=False))
+    dicts = result.structuredContent
     assert len(dicts) > 0
