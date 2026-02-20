@@ -392,6 +392,10 @@ def register_vertex_tools(mcp: FastMCP) -> None:
 
         The group of unsuccessive verses can also contain subgroups of successive verses, in which case the caption should combine the rules described above, 
         e. g. Jn 1:11-13,2:15,3:15-18 or 2Pet 1:1-2:15,3:18.
+
+        If the verse group contains all verses from a chapter, its caption should be in the format `{book} {chapter}`, e. g. Jn 1 or 2Pet 2.^
+
+        If the verse group contains all verses from multiple chapters, its caption should be in the format `{book} {chapter}-{chapter}`, e. g. Jn 1-3 or 2Pet 1-2.
         """
         try:
             g = get_g(ctx)
