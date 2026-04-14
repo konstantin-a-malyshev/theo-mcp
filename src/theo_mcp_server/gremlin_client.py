@@ -29,6 +29,8 @@ async def app_lifespan(server: FastMCP) -> AsyncIterator[AppContext]:
     conn = DriverRemoteConnection(
         cfg.gremlin_url, 
         cfg.gremlin_traversal_source,
+        username=cfg.gremlin_username if cfg.gremlin_username else None,
+        password=cfg.gremlin_password if cfg.gremlin_password else None,
         transport_factory=lambda: AiohttpTransport(call_from_event_loop=True))
     
     g = traversal().with_remote(conn)
@@ -47,6 +49,8 @@ async def get_g_for_tests() -> GraphTraversalSource:
     conn = DriverRemoteConnection(
         cfg.gremlin_url,
         cfg.gremlin_traversal_source,
+        username=cfg.gremlin_username if cfg.gremlin_username else None,
+        password=cfg.gremlin_password if cfg.gremlin_password else None,
         transport_factory=lambda: AiohttpTransport(call_from_event_loop=True)
     )
     
