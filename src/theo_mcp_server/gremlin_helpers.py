@@ -11,6 +11,14 @@ from mcp.server.session import ServerSession
 from .gremlin_client import AppContext, get_g
 from .validation import normalize_label, normalize_edge_label, validate_and_fix_properties
 
+# Valid quotation statuses
+VALID_QUOTATION_STATUSES = ["new", "suspended", "processed"]
+
+def validate_quotation_status(status: str) -> None:
+    """Validate that the given status is a valid quotation status."""
+    if status not in VALID_QUOTATION_STATUSES:
+        raise ValueError(f"Invalid status: {status}. Must be one of: {', '.join(VALID_QUOTATION_STATUSES)}")
+
 direct_reverse_mapping = {
     "next"          : "previous",
     "isSupportedBy" : "supports",

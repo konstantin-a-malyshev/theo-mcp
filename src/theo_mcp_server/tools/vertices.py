@@ -23,7 +23,8 @@ from ..gremlin_helpers import (
     get_unique_vertex_by_caption,
     create_edge,
     search_vertices,
-    flatten_value_map
+    flatten_value_map,
+    validate_quotation_status
 )
 from ..validation import normalize_edge_label, normalize_label, validate_and_fix_properties
 from theo_mcp_server import gremlin_helpers
@@ -603,31 +604,40 @@ def register_vertex_tools(mcp: FastMCP) -> None:
             raise ToolError(traceback.format_exc())
         
     @mcp.tool()
-    def get_new_quotations(ctx: Context[ServerSession, AppContext], limit: int) -> list[dict[str, Any]]:
-        """Get newly created quotations."""
+    def get_quotations_by_status(
+        ctx: Context[ServerSession, AppContext], 
+        status: str, 
+        limit: int
+    ) -> list[dict[str, Any]]:
+        """Get quotations by status (new, suspended, processed)."""
         try:
+            validate_quotation_status(status)
+            
             g = get_g(ctx)
-            t = g.V().has('type', "quotation").has('status', 'new').order().by("importIndex", Order.desc)
+            t = g.V().has('type', "quotation").has('status', status).order().by("importIndex", Order.desc)
             raw_list = t.limit(limit).valueMap(True).toList()
             return [flatten_value_map(r) for r in raw_list]
         except Exception:
             raise ToolError(traceback.format_exc())
         
     @mcp.tool()
-    def set_quotation_as_processed(
+    def set_quotation_status(
         ctx: Context[ServerSession, AppContext],
-        caption: str
+        caption: str,
+        status: str
     ) -> dict[str, Any]:
         """
-        Set quotation as processed by caption.
+        Set quotation status by caption. Valid statuses: new, suspended, processed.
         """
         try:
+            validate_quotation_status(status)
+            
             g = get_g(ctx)
             ids = g.V().has("caption", caption).hasLabel("quotation").id_().toList()
             if not ids:
                 raise ValueError(f"Quotation not found: caption={caption}")
             
-            g.V(ids[0]).property("status", "processed").iterate()
+            g.V(ids[0]).property("status", status).iterate()
             return read_vertex_with_edges(g, ids[0])
         except Exception:
             raise ToolError(traceback.format_exc()) 
