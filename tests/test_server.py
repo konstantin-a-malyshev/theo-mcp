@@ -1,10 +1,14 @@
 import datetime
 import json
+import os
 import pytest
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
-server_params = StdioServerParameters(command="theo-mcp")
+server_params = StdioServerParameters(
+    command=os.path.join(".venv", "Scripts", "python.exe"),
+    args=["-m", "theo_mcp_server"],
+)
 
 @pytest.fixture
 async def mcp_session():
@@ -186,6 +190,69 @@ async def test_get_quotations_by_status(mcp_session):
     print(json.dumps(dicts, indent=2, ensure_ascii=False))
 
     assert len(dicts) >= 0
+
+@pytest.mark.anyio
+async def test_quotation_lifecycle(mcp_session):
+    prefix = "test_quotation_lifecycle"
+    timestamp = datetime.datetime.now().strftime("%d.%m.%Y %H:%M:%S")
+
+    caption = f"{prefix}_{timestamp}"
+    text = f"Quotation text {timestamp}"
+    book = "Test Book"
+    position = "p. 1"
+
+    create_result = await mcp_session.call_tool(
+        "create_quotation",
+        {
+            "caption": caption,
+            "text": text,
+            "book": book,
+            "position": position,
+        },
+    )
+    created = create_result.structuredContent["created"]
+
+    assert created["caption"] == caption
+    assert created["text"] == text
+    assert created["book"] == book
+    assert created["position"] == position
+    assert created["status"] == "new"
+
+    get_result = await mcp_session.call_tool("get_quotation_by_caption", {"caption": caption})
+    quotation = get_result.structuredContent
+
+    assert quotation["caption"] == caption
+    assert quotation["text"] == text
+    assert quotation["book"] == book
+    assert quotation["position"] == position
+    assert quotation["status"] == "new"
+
+    set_status_result = await mcp_session.call_tool(
+        "set_quotation_status",
+        {"caption": caption, "status": "processed"},
+    )
+    updated = set_status_result.structuredContent
+
+    assert updated["caption"] == caption
+    assert updated["status"] == "processed"
+
+    get_updated_result = await mcp_session.call_tool("get_quotation_by_caption", {"caption": caption})
+    updated_quotation = get_updated_result.structuredContent
+
+    assert updated_quotation["caption"] == caption
+    assert updated_quotation["status"] == "processed"
+
+    list_result = await mcp_session.call_tool(
+        "get_quotations_by_status",
+        {"status": "processed", "limit": 50},
+    )
+    quotations = list_result.structuredContent.get("result")
+
+    assert isinstance(quotations, list)
+    assert len(quotations) >= 0
+
+    delete_result = await mcp_session.call_tool("delete_quotation_by_caption", {"caption": caption})
+    assert delete_result.structuredContent["deleted"] is True
 
 @pytest.mark.anyio
 async def test_get_verse_group_by_caption(mcp_session):

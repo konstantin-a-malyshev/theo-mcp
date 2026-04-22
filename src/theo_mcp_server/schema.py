@@ -6,6 +6,7 @@ LABELS_CANON: dict[str, str] = {
     "person": "person",
     "book": "book",
     "verse": "verse",
+    "quotation": "quotation",
     "notiongroup": "notionGroup",
     "notionGroup": "notionGroup",
     "versegroup": "verseGroup",
@@ -28,6 +29,7 @@ ALLOWED_PROPS: dict[str, set[str]] = {
     "person": {"caption"},
     "book": {"caption"},
     "verse": {"chapter", "RST", "bookShort", "book", "caption", "importIndex", "verse"},
+    "quotation": {"caption", "text", "book", "position", "status", "importIndex"},
     "notionGroup": {"caption"},
     "verseGroup": {"caption"},
 }
@@ -37,6 +39,7 @@ REQUIRED_PROPS: dict[str, set[str]] = {
     "person": {"caption"},
     "book": {"caption"},
     "verse": {"caption"},
+    "quotation": {"caption", "text", "book", "position", "importIndex"},
     "notionGroup": {"caption"},
     "verseGroup": {"caption"},
 }

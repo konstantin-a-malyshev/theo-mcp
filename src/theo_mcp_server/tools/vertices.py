@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any
+import time
 
 import traceback 
 
@@ -599,7 +600,15 @@ def register_vertex_tools(mcp: FastMCP) -> None:
             edges_in = reverse_backward_relationship_keys(edges_in)
             edges_out = filter_direct_relationships(relationships or {})
             g = get_g(ctx)
-            return create_vertex_and_connect_by_captions(g, "quotation", {"caption": caption, "text": text, "book": book, "position": position}, edges_out, edges_in)
+            props = {
+                "caption": caption,
+                "text": text,
+                "book": book,
+                "position": position,
+                "status": "new",
+                "importIndex": -int(time.time()),
+            }
+            return create_vertex_and_connect_by_captions(g, "quotation", props, edges_out, edges_in)
         except Exception:
             raise ToolError(traceback.format_exc())
         
