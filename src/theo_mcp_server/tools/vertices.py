@@ -549,6 +549,53 @@ def register_vertex_tools(mcp: FastMCP) -> None:
             return create_edge(g, relationship, source["internal_id"], target["internal_id"])
         except Exception:
             raise ToolError(traceback.format_exc())
+
+    @mcp.tool()
+    def delete_relationship(
+        ctx: Context[ServerSession, AppContext],
+        relationship: str,
+        sourceCaption: str,
+        targetCaption: str,
+    ) -> dict[str, Any]:
+        """Delete all relationships of type `relationship` from `sourceCaption` to `targetCaption`."""
+        try:
+            g = get_g(ctx)
+            source = get_unique_vertex_by_caption(g, sourceCaption)
+            target = get_unique_vertex_by_caption(g, targetCaption)
+            edge_label = normalize_edge_label(relationship)
+
+            count = (
+                g.V(source["internal_id"])
+                .outE(edge_label)
+                .where(__.inV().hasId(target["internal_id"]))
+                .count()
+                .next()
+            )
+
+            (
+                g.V(source["internal_id"])
+                .outE(edge_label)
+                .where(__.inV().hasId(target["internal_id"]))
+                .drop()
+                .iterate()
+            )
+
+            return {
+                "deleted_edges": int(count),
+                "relationship": edge_label,
+                "source": {
+                    "label": source["label"],
+                    "internal_id": source.get("internal_id"),
+                    "caption": source.get("caption"),
+                },
+                "target": {
+                    "label": target["label"],
+                    "internal_id": target.get("internal_id"),
+                    "caption": target.get("caption"),
+                },
+            }
+        except Exception:
+            raise ToolError(traceback.format_exc())
         
     @mcp.tool()
     def search_notion_groups_and_notions(
