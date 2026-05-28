@@ -5,9 +5,13 @@ import pytest
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
+_env = os.environ.copy()
+_env["PYTHONPATH"] = os.path.join(os.path.dirname(__file__), "..", "src")
+
 server_params = StdioServerParameters(
     command=os.path.join(".venv", "Scripts", "python.exe"),
     args=["-m", "theo_mcp_server"],
+    env=_env,
 )
 
 @pytest.fixture
