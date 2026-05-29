@@ -315,6 +315,13 @@ def get_subgraph_by_captions(g: GraphTraversalSource, captions: list[str]) -> di
     missing = [c for c in captions if c not in counts]
     ambiguous = {c: n for c, n in counts.items() if n > 1}
 
+    # TODO: ids is built from ALL matched vertices, including duplicates when a caption
+    #   is ambiguous. The edge traversal below will then find edges between those phantom
+    #   duplicates and include them in the returned `edges` list. The sole current caller
+    #   (create_diagram_by_captions) guards against this by checking `ambiguous` before
+    #   consuming `edges`, but any future caller that skips that check will get a corrupted
+    #   subgraph with no exception raised. Consider clearing `edges` or raising inside
+    #   this helper when `ambiguous` is non-empty.
     ids = [int(v["internal_id"]) for v in vertices]
     edges: list[dict[str, Any]] = []
     if len(ids) >= 2:
@@ -330,6 +337,12 @@ def get_subgraph_by_captions(g: GraphTraversalSource, captions: list[str]) -> di
             .dedup()
             .toList()
         )
+        # TODO: The dedup key is (edge_label, from_id, to_id), not the edge element id.
+        #   This silently collapses parallel edges of the same type between the same vertex
+        #   pair into one. JanusGraph allows multiple edges with the same label between the
+        #   same vertices (create_edge() has no duplicate guard), so this data loss can
+        #   occur in practice. Fix: use the edge element id as the dedup key, or at minimum
+        #   document this limitation clearly.
         seen: set[tuple] = set()
         for row in raw_edges:
             key = (row["e"], int(row["from"]), int(row["to"]))

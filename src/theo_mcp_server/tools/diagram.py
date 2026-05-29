@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import Any
 
 import graphviz
@@ -63,7 +64,7 @@ def _render_svg(
     include_edge_labels: bool,
 ) -> str:
     dot = graphviz.Digraph(engine=layout, format="svg")
-    dot.attr(rankdir=direction, bgcolor="white", overlap="false", splines="true")
+    dot.attr(rankdir=direction, bgcolor="white", overlap="false", splines="true", pad="0.4")
     dot.attr("node", fontname="Helvetica", fontsize="11")
     dot.attr("edge", fontname="Helvetica", fontsize="9")
 
@@ -78,7 +79,22 @@ def _render_svg(
         edge_label = e["label"] if include_edge_labels else ""
         dot.edge(str(e["from_id"]), str(e["to_id"]), label=edge_label, **style)
 
-    return dot.pipe(format="svg").decode("utf-8")
+    try:
+        svg = dot.pipe(format="svg").decode("utf-8")
+    except graphviz.backend.execute.ExecutableNotFound:
+        raise ValueError(
+            "Graphviz executable not found. "
+            "Please install Graphviz and make sure 'dot' is on your PATH: "
+            "https://graphviz.org/download/"
+        )
+
+    # Make the SVG responsive: replace Graphviz's fixed pt dimensions with
+    # width="100%" and no height so the SVG scales freely inside its container
+    # while preserving aspect ratio via the existing viewBox attribute.
+    svg = re.sub(r'\bwidth="[\d.]+pt"', 'width="100%"', svg)
+    svg = re.sub(r'\s*height="[\d.]+pt"', '', svg)
+
+    return svg
 
 
 def register_diagram_tools(mcp: FastMCP) -> None:
