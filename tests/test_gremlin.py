@@ -6,7 +6,7 @@ from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
 from theo_mcp_server.gremlin_client import get_g_for_tests
-from theo_mcp_server.gremlin_helpers import build_notion_groups_tree, change_caption, create_vertex_and_connect_by_captions, delete_vertex_by_id, get_vertices_by_captions, read_vertex_with_edges, search_vertices
+from theo_mcp_server.gremlin_helpers import build_notion_groups_tree, change_caption, create_vertex_and_connect_by_captions, delete_vertex_by_id, get_subgraph_by_captions, get_vertices_by_captions, read_vertex_with_edges, search_vertices
 
 server_params = StdioServerParameters(command="theo-mcp")
 
@@ -66,6 +66,46 @@ async def test_build_notion_groups_tree(g):
     results = build_notion_groups_tree(g, includeNotions=True)
     print(json.dumps(results, indent=2, ensure_ascii=False))
     assert len(results) > 0    
+
+@pytest.mark.anyio
+async def test_get_subgraph_by_captions(g):
+    prefix = "test_get_subgraph_by_captions"
+    timestamp = datetime.datetime.now().strftime("%d.%m.%Y %H:%M:%S")
+    a_caption = f"{prefix}_A_{timestamp}"
+    b_caption = f"{prefix}_B_{timestamp}"
+    c_caption = f"{prefix}_C_{timestamp}"
+
+    a = create_vertex_and_connect_by_captions(g, "notion", {"caption": a_caption}, None, None)
+    b = create_vertex_and_connect_by_captions(g, "notion", {"caption": b_caption}, {"isSupportedBy": [a_caption]}, None)
+    c = create_vertex_and_connect_by_captions(g, "notion", {"caption": c_caption}, {"refersTo": [b_caption]}, None)
+
+    a_id = a["created"]["internal_id"]
+    b_id = b["created"]["internal_id"]
+    c_id = c["created"]["internal_id"]
+
+    try:
+        result = get_subgraph_by_captions(g, [a_caption, b_caption, c_caption])
+        ids = {int(v["internal_id"]) for v in result["vertices"]}
+        assert ids == {a_id, b_id, c_id}
+        assert result["missing"] == []
+        assert result["ambiguous"] == {}
+
+        edge_set = {(e["label"], e["from_id"], e["to_id"]) for e in result["edges"]}
+        assert ("isSupportedBy", b_id, a_id) in edge_set
+        assert ("refersTo",      c_id, b_id) in edge_set
+
+        partial = get_subgraph_by_captions(g, [a_caption, c_caption])
+        partial_edges = {(e["label"], e["from_id"], e["to_id"]) for e in partial["edges"]}
+        assert ("refersTo", c_id, b_id) not in partial_edges
+        assert ("isSupportedBy", b_id, a_id) not in partial_edges
+
+        missing_result = get_subgraph_by_captions(g, [a_caption, "definitely_does_not_exist_xyz"])
+        assert "definitely_does_not_exist_xyz" in missing_result["missing"]
+    finally:
+        delete_vertex_by_id(g, c_id)
+        delete_vertex_by_id(g, b_id)
+        delete_vertex_by_id(g, a_id)
+
 
 @pytest.mark.anyio
 async def test_change_caption(g):

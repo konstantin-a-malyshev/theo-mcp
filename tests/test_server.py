@@ -336,6 +336,33 @@ async def test_get_notion_groups_tree(mcp_session):
     assert len(dicts) > 0
 
 @pytest.mark.anyio
+async def test_create_diagram_by_captions(mcp_session):
+    prefix = "test_create_diagram_by_captions"
+    timestamp = datetime.datetime.now().strftime("%d.%m.%Y %H:%M:%S")
+    a_caption = f"{prefix}_A_{timestamp}"
+    b_caption = f"{prefix}_B_{timestamp}"
+
+    await mcp_session.call_tool("create_notion", {"caption": a_caption})
+    await mcp_session.call_tool(
+        "create_notion",
+        {"caption": b_caption, "relationships": {"isSupportedBy": [a_caption]}},
+    )
+
+    try:
+        result = await mcp_session.call_tool(
+            "create_diagram_by_captions",
+            {"captions": [a_caption, b_caption]},
+        )
+        svg = result.structuredContent.get("result")
+        assert isinstance(svg, str)
+        assert svg.lstrip().startswith("<?xml") or svg.lstrip().startswith("<svg")
+        assert "</svg>" in svg
+    finally:
+        await mcp_session.call_tool("delete_notion_by_caption", {"caption": b_caption})
+        await mcp_session.call_tool("delete_notion_by_caption", {"caption": a_caption})
+
+
+@pytest.mark.anyio
 async def test_change_caption(mcp_session):
     prefix = "test_change_caption"
     timestamp = datetime.datetime.now().strftime("%d.%m.%Y %H:%M:%S")

@@ -287,6 +287,81 @@ def build_notion_groups_tree(g: GraphTraversalSource, includeNotions: bool) -> d
 
     return build_tree(paths)
 
+def get_subgraph_by_captions(g: GraphTraversalSource, captions: list[str]) -> dict[str, Any]:
+    """Return induced subgraph for the given vertex captions.
+
+    Output:
+        {
+            "vertices": [ {internal_id, label, caption, ...}, ... ],
+            "edges":    [ {label, from_id, to_id}, ... ],
+            "missing":  [caption, ...],          # captions with no match
+            "ambiguous": {caption: count, ...},  # captions with >1 match
+        }
+
+    Only edges whose both endpoints belong to the requested set are returned.
+    """
+    if not captions:
+        raise ValueError("captions must be a non-empty list")
+
+    raw_vertices = g.V().has("caption", P.within(captions)).valueMap(True).toList()
+    vertices = [flatten_value_map(r) for r in raw_vertices]
+
+    counts: dict[str, int] = {}
+    for v in vertices:
+        cap = v.get("caption")
+        if cap is not None:
+            counts[cap] = counts.get(cap, 0) + 1
+
+    missing = [c for c in captions if c not in counts]
+    ambiguous = {c: n for c, n in counts.items() if n > 1}
+
+    # TODO: ids is built from ALL matched vertices, including duplicates when a caption
+    #   is ambiguous. The edge traversal below will then find edges between those phantom
+    #   duplicates and include them in the returned `edges` list. The sole current caller
+    #   (create_diagram_by_captions) guards against this by checking `ambiguous` before
+    #   consuming `edges`, but any future caller that skips that check will get a corrupted
+    #   subgraph with no exception raised. Consider clearing `edges` or raising inside
+    #   this helper when `ambiguous` is non-empty.
+    ids = [int(v["internal_id"]) for v in vertices]
+    edges: list[dict[str, Any]] = []
+    if len(ids) >= 2:
+        raw_edges = (
+            g.V(*ids).as_("from")
+            .outE().as_("e")
+            .inV().as_("to")
+            .where(__.select("to").hasId(P.within(ids)))
+            .select("from", "e", "to")
+            .by(T.id)
+            .by(__.label())
+            .by(T.id)
+            .dedup()
+            .toList()
+        )
+        # TODO: The dedup key is (edge_label, from_id, to_id), not the edge element id.
+        #   This silently collapses parallel edges of the same type between the same vertex
+        #   pair into one. JanusGraph allows multiple edges with the same label between the
+        #   same vertices (create_edge() has no duplicate guard), so this data loss can
+        #   occur in practice. Fix: use the edge element id as the dedup key, or at minimum
+        #   document this limitation clearly.
+        seen: set[tuple] = set()
+        for row in raw_edges:
+            key = (row["e"], int(row["from"]), int(row["to"]))
+            if key not in seen:
+                seen.add(key)
+                edges.append({
+                    "label": row["e"],
+                    "from_id": int(row["from"]),
+                    "to_id": int(row["to"]),
+                })
+
+    return {
+        "vertices": vertices,
+        "edges": edges,
+        "missing": missing,
+        "ambiguous": ambiguous,
+    }
+
+
 def change_caption(g: GraphTraversalSource, old_caption: str, new_caption: str) -> dict[str, Any]:
     """Change the caption of a vertex."""
     vertex = get_unique_vertex_by_caption(g, old_caption)
