@@ -25,7 +25,8 @@ from ..gremlin_helpers import (
     create_edge,
     search_vertices,
     flatten_value_map,
-    validate_quotation_status
+    validate_quotation_status,
+    is_vertex_existing_by_id,
 )
 from ..validation import normalize_edge_label, normalize_label, validate_and_fix_properties
 from theo_mcp_server import gremlin_helpers
@@ -50,8 +51,7 @@ def register_vertex_tools(mcp: FastMCP) -> None:
         g = get_g(ctx)
         canon = normalize_label(label)
 
-        exists = g.V().hasLabel(canon).has("id", int(id)).limit(1).toList()
-        if not exists:
+        if not is_vertex_existing_by_id(g, int(id), label=canon):
             raise ValueError(f"Vertex not found: label={canon} id={id}")
 
         if set_properties:

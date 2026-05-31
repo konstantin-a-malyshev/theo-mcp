@@ -159,12 +159,26 @@ def create_vertex_and_connect_by_captions(
                 results["edges_created"].append(result)
     return results
 
+def is_vertex_existing_by_caption(
+    g: GraphTraversalSource, caption: str, label: str | None = None
+) -> bool:
+    """Return True if any vertex with the given caption (and optional label) exists.
+
+    Only the vertex id is fetched to avoid GraphBinary deserialization of full
+    Vertex objects, which can fail with `KeyError: DataType.custom` against
+    JanusGraph.
+    """
+    t = g.V().has("caption", caption)
+    if label is not None:
+        t = t.hasLabel(label)
+    return bool(t.limit(1).id_().toList())
+
+
 def create_vertex(g: GraphTraversalSource, label: str, properties: dict[str, Any]) -> dict[str, Any]:
     label = normalize_label(label)
     props = validate_and_fix_properties(label, properties, require_required=True)
 
-    existing = g.V().hasLabel(label).has("caption", props["caption"]).limit(1).toList()
-    if existing:
+    if is_vertex_existing_by_caption(g, props["caption"], label):
         raise ValueError(f"Vertex already exists: label={label} caption={props['caption']}")
 
     t = g.addV(label).property("type", label)
@@ -219,7 +233,7 @@ def delete_vertex_by_id(g: GraphTraversalSource, id: int) -> dict[str, Any]:
     g.V(id).drop().iterate()
     return {"deleted": True, "id": int(id)}
 
-def is_vertex_existing(g: GraphTraversalSource, id: int) -> bool:
+def is_vertex_existing_by_id(g: GraphTraversalSource, id: int, label: str | None = None) -> bool:
     """Check if a vertex exists by id."""
     raw = g.V(id).valueMap(True).toList()
     return bool(raw)

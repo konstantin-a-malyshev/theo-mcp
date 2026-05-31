@@ -6,7 +6,7 @@ from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
 from theo_mcp_server.gremlin_client import get_g_for_tests
-from theo_mcp_server.gremlin_helpers import build_notion_groups_tree, change_caption, create_vertex_and_connect_by_captions, delete_vertex_by_id, get_subgraph_by_captions, get_vertices_by_captions, read_vertex_with_edges, search_vertices
+from theo_mcp_server.gremlin_helpers import build_notion_groups_tree, change_caption, create_vertex_and_connect_by_captions, delete_vertex_by_id, get_subgraph_by_captions, get_vertices_by_captions, read_vertex_with_edges, search_vertices, is_vertex_existing_by_caption
 
 server_params = StdioServerParameters(command="theo-mcp")
 
@@ -105,6 +105,37 @@ async def test_get_subgraph_by_captions(g):
         delete_vertex_by_id(g, c_id)
         delete_vertex_by_id(g, b_id)
         delete_vertex_by_id(g, a_id)
+
+
+@pytest.mark.anyio
+async def test_is_vertex_existing_by_caption(g):
+    prefix = "test_is_vertex_existing_by_caption"
+    timestamp = datetime.datetime.now().strftime("%d.%m.%Y %H:%M:%S")
+    caption = f"{prefix}_{timestamp}"
+    missing = f"{prefix}_MISSING_{timestamp}"
+
+    # Nothing there yet.
+    assert is_vertex_existing_by_caption(g, caption) is False
+    assert is_vertex_existing_by_caption(g, caption, label="notion") is False
+
+    created = create_vertex_and_connect_by_captions(g, "notion", {"caption": caption}, None, None)
+    vertex_id = created["created"]["internal_id"]
+
+    try:
+        # Found without and with matching label.
+        assert is_vertex_existing_by_caption(g, caption) is True
+        assert is_vertex_existing_by_caption(g, caption, label="notion") is True
+
+        # Wrong label should not match.
+        assert is_vertex_existing_by_caption(g, caption, label="verse") is False
+
+        # Unrelated caption stays missing.
+        assert is_vertex_existing_by_caption(g, missing) is False
+    finally:
+        delete_vertex_by_id(g, vertex_id)
+
+    # After deletion the caption is gone again.
+    assert is_vertex_existing_by_caption(g, caption) is False
 
 
 @pytest.mark.anyio

@@ -6,7 +6,7 @@ from mcp.server.fastmcp import Context, FastMCP
 from mcp.server.session import ServerSession
 
 from ..gremlin_client import AppContext, get_g
-from ..gremlin_helpers import get_unique_vertex_by_caption
+from ..gremlin_helpers import get_unique_vertex_by_caption, is_vertex_existing_by_id
 from ..validation import normalize_edge_label
 
 
@@ -37,8 +37,7 @@ def register_domain_tools(mcp: FastMCP) -> None:
         canon = normalize_label("notion")
         props = validate_properties(canon, properties, require_required=True)
 
-        existing = g.V().hasLabel(canon).has("id", props["id"]).limit(1).toList()
-        if existing:
+        if is_vertex_existing_by_id(g, props["id"], label=canon):
             raise ValueError(f"Vertex already exists: label={canon} id={props['id']}")
 
         t = g.addV(canon)
@@ -100,8 +99,7 @@ def register_domain_tools(mcp: FastMCP) -> None:
         canon = normalize_label("notionGroup")
         props = validate_properties(canon, properties, require_required=True)
 
-        existing = g.V().hasLabel(canon).has("id", props["id"]).limit(1).toList()
-        if existing:
+        if is_vertex_existing_by_id(g, props["id"], label=canon):
             raise ValueError(f"Vertex already exists: label={canon} id={props['id']}")
 
         t = g.addV(canon)
