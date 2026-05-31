@@ -21,18 +21,21 @@ class AppContext:
     g: Any  # GraphTraversalSource (gremlin-python type)
 
 
-@asynccontextmanager
-async def app_lifespan(server: FastMCP) -> AsyncIterator[AppContext]:
-    """Create & close the Gremlin remote connection once per server lifecycle."""
+def _make_connection() -> DriverRemoteConnection:
     cfg = get_config()
-
-    conn = DriverRemoteConnection(
-        cfg.gremlin_url, 
+    return DriverRemoteConnection(
+        cfg.gremlin_url,
         cfg.gremlin_traversal_source,
         username=cfg.gremlin_username if cfg.gremlin_username else None,
         password=cfg.gremlin_password if cfg.gremlin_password else None,
-        transport_factory=lambda: AiohttpTransport(call_from_event_loop=True))
-    
+        transport_factory=lambda: AiohttpTransport(call_from_event_loop=True),
+    )
+
+
+@asynccontextmanager
+async def app_lifespan(server: FastMCP) -> AsyncIterator[AppContext]:
+    """Create & close the Gremlin remote connection once per server lifecycle."""
+    conn = _make_connection()
     g = traversal().with_remote(conn)
 
     try:
@@ -58,5 +61,32 @@ async def get_g_for_tests() -> GraphTraversalSource:
     
     return g
 
+def _reconnect(app_ctx: AppContext) -> None:
+    try:
+        app_ctx.connection.close()
+    except Exception:
+        pass
+    app_ctx.connection = _make_connection()
+    app_ctx.g = traversal().with_remote(app_ctx.connection)
+
+
+def _is_closed_connection_error(exc: BaseException) -> bool:
+    msg = str(exc)
+    if "Connection was already closed" in msg or "Connection refused" in msg:
+        return True
+    cause = exc.__cause__ or exc.__context__
+    return cause is not None and cause is not exc and _is_closed_connection_error(cause)
+
+
 def get_g(ctx: Context[ServerSession, AppContext]):
-    return ctx.request_context.lifespan_context.g
+    app_ctx = ctx.request_context.lifespan_context
+    # Cheap liveness probe; rebuild the connection if the socket has dropped
+    # (idle timeout, server restart, laptop sleep/resume).
+    try:
+        app_ctx.g.inject(0).toList()
+    except Exception as e:
+        if _is_closed_connection_error(e):
+            _reconnect(app_ctx)
+        else:
+            raise
+    return app_ctx.g
