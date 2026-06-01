@@ -17,7 +17,6 @@ from ..gremlin_helpers import (
     filter_direct_relationships,
     filter_backward_relationships,
     get_vertices_by_captions,
-    get_vertices_by_type,
     reverse_backward_relationship_keys,
     read_vertex_with_edges,
     delete_vertex_by_id,
@@ -26,83 +25,13 @@ from ..gremlin_helpers import (
     search_vertices,
     flatten_value_map,
     validate_quotation_status,
-    is_vertex_existing_by_id,
 )
 from ..validation import normalize_edge_label, normalize_label, validate_and_fix_properties
 from theo_mcp_server import gremlin_helpers
 
 
-def register_vertex_tools(mcp: FastMCP) -> None:
+def register_graph_tools(mcp: FastMCP) -> None:
 
-    # @mcp.tool()
-    def read_vertex_by_id(ctx: Context[ServerSession, AppContext], label: str, id: int) -> dict[str, Any]:
-        """Read a vertex (by your 'id' property) plus all its incoming/outgoing edges."""
-        return read_vertex_with_edges(ctx, label=label, vertex_id=int(id))
-
-    # @mcp.tool()
-    def update_vertex_by_id(
-        ctx: Context[ServerSession, AppContext],
-        label: str,
-        id: int,
-        set_properties: dict[str, Any] | None = None,
-        unset_properties: list[str] | None = None,
-    ) -> dict[str, Any]:
-        """Update a vertex by label + id (set and/or unset properties)."""
-        g = get_g(ctx)
-        canon = normalize_label(label)
-
-        if not is_vertex_existing_by_id(g, int(id), label=canon):
-            raise ValueError(f"Vertex not found: label={canon} id={id}")
-
-        if set_properties:
-            props = validate_and_fix_properties(canon, set_properties, require_required=False)
-            t = g.V().hasLabel(canon).has("id", int(id))
-            for k, v_ in props.items():
-                t = t.property(k, v_)
-            t.iterate()
-
-        if unset_properties:
-            from ..schema import ALLOWED_PROPS
-            for k in unset_properties:
-                if k not in ALLOWED_PROPS[canon]:
-                    raise ValueError(f"Cannot unset unknown property '{k}' for label '{canon}'")
-                g.V().hasLabel(canon).has("id", int(id)).properties(k).drop().iterate()
-
-        return read_vertex_with_edges(ctx, label=canon, vertex_id=int(id))
-
-    # @mcp.tool()
-    def list_vertices_by_label(ctx: Context[ServerSession, AppContext], label: str, limit: int = 1000, offset: int = 0) -> list[dict[str, Any]]:
-        """List vertices (id + caption) for a given label."""
-        g = get_g(ctx)
-        canon = normalize_label(label)
-        return (
-            g.V()
-            .hasLabel(canon)
-            .range(offset, offset + limit)
-            .project("label", "id", "caption", "internal_id")
-            .by(__.label())
-            .by(__.values("id"))
-            .by(__.values("caption"))
-            .by(__.id())
-            .toList()
-        )
-
-    # @mcp.tool()
-    def find_vertices_by_caption(ctx: Context[ServerSession, AppContext], caption: str, label: str | None = None, limit: int = 50) -> list[dict[str, Any]]:
-        """Find vertices by exact caption match (optionally filtered by label)."""
-        g = get_g(ctx)
-        t = g.V().has("caption", caption)
-        if label:
-           t = t.hasLabel(normalize_label(label))
-        return (
-            t.limit(limit)
-            .project("id", "label", "caption")
-            .by(T.id)
-            .by(__.label())
-            .by(__.values("caption"))
-            .toList()
-        )
-    
     @mcp.tool()
     def create_notion(ctx: Context[ServerSession, AppContext], caption: str, relationships: dict[str, list[str]] | None = None) -> dict[str, Any]:
         """

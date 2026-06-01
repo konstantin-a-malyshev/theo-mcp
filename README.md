@@ -97,9 +97,8 @@ pytest -s
 ## Tool overview
 
 See `src/theo_mcp_server/tools/`:
-- `vertices.py`: create/read/update/delete/list/find
-- `domain.py`: create notion / notionGroup and connect via supported/challenged/refers
-- `edges.py`: connect/add/delete edges between existing vertices
+- `graph.py`: create/read/update/delete/list/find for notions, notionGroups, verses, verseGroups, quotations, books; relationships; search; trees; caption rename
+- `diagram.py`: Graphviz SVG diagram generation
 
 The tools use your **property** `id` as the public identifier, and also return JanusGraph's internal id
 as `internal_id` in responses (useful for debugging).
