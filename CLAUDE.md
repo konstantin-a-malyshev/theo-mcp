@@ -37,7 +37,7 @@ Read from environment (via `python-dotenv`, so a `.env` at repo root is honored)
 
 ## Architecture
 
-Entry point [\_\_main\_\_.py](src/theo_mcp_server/__main__.py) calls `app.run(transport=…)` on the `FastMCP` app built in [server.py](src/theo_mcp_server/server.py). `create_mcp()` wires the lifespan and registers tool groups in order: vertices → domain → edges → test_image → diagram.
+Entry point [\_\_main\_\_.py](src/theo_mcp_server/__main__.py) calls `app.run(transport=…)` on the `FastMCP` app built in [server.py](src/theo_mcp_server/server.py). `create_mcp()` wires the lifespan and registers tool groups in order: vertices → diagram.
 
 The Gremlin connection is opened **once per server lifecycle** by `app_lifespan` in [gremlin_client.py](src/theo_mcp_server/gremlin_client.py), which yields an `AppContext(connection, g)` where `g` is a `GraphTraversalSource`. Tools obtain `g` via `get_g(ctx)` from `ctx.request_context.lifespan_context`. There is also `get_g_for_tests()` that opens an independent connection for direct (non-MCP) tests like [tests/test_gremlin.py](tests/test_gremlin.py).
 
@@ -46,10 +46,7 @@ Schema (vertex labels, allowed/required props, edge labels) is centralized in [s
 Tool implementations live in [src/theo_mcp_server/tools/](src/theo_mcp_server/tools):
 
 - `vertices.py` — generic CRUD/list/find/search; tree builders for notion(Group)s.
-- `domain.py` — higher-level domain ops (create notion / notionGroup / verse_group / quotation and connect via `isSupportedBy`, `isChallengedBy`, `refersTo`, `contains`, etc.).
-- `edges.py` — create/delete edges between existing vertices.
 - `diagram.py` — Graphviz-based SVG diagram generation (`create_diagram_by_captions`, `change_caption`). Depends on the `graphviz` Python package and the system `dot` binary being on PATH.
-- `test_image.py` — `get_test_svg`, used to validate that MCP image responses work end-to-end.
 
 Shared Gremlin query/transformation logic is in [gremlin_helpers.py](src/theo_mcp_server/gremlin_helpers.py) (e.g., `create_vertex_and_connect_by_captions`, `read_vertex_with_edges`, `build_notion_groups_tree`, `flatten_value_map`, `filter_direct_relationships` / `filter_backward_relationships`, `reverse_backward_relationship_keys`). Edits to vertex/edge behavior should typically go here rather than being duplicated across tool modules.
 

@@ -4,9 +4,6 @@ from mcp.server.fastmcp import FastMCP
 
 from .gremlin_client import app_lifespan
 from .tools.diagram import register_diagram_tools
-from .tools.domain import register_domain_tools
-from .tools.edges import register_edge_tools
-from .tools.test_image import register_test_image_tools
 from .tools.vertices import register_vertex_tools
 
 
@@ -15,9 +12,6 @@ def create_mcp() -> FastMCP:
 
     # Register tools in a predictable order
     register_vertex_tools(mcp)
-    register_domain_tools(mcp)
-    register_edge_tools(mcp)
-    register_test_image_tools(mcp)
     register_diagram_tools(mcp)
 
     return mcp
