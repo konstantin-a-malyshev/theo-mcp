@@ -384,6 +384,42 @@ async def test_create_book(mcp_session):
     assert delete_result.structuredContent["deleted"] is True
 
 @pytest.mark.anyio
+async def test_move_notion_to_group(mcp_session):
+    prefix = "test_move_notion_to_group"
+    timestamp = datetime.datetime.now().strftime("%d.%m.%Y %H:%M:%S")
+
+    notion_caption = f"{prefix}_NOTION_{timestamp}"
+    group_a_caption = f"{prefix}_GROUP_A_{timestamp}"
+    group_b_caption = f"{prefix}_GROUP_B_{timestamp}"
+
+    await mcp_session.call_tool("create_notion_group", {"caption": group_a_caption})
+    await mcp_session.call_tool("create_notion_group", {"caption": group_b_caption})
+    await mcp_session.call_tool(
+        "create_notion",
+        {"caption": notion_caption, "relationships": {"isContainedIn": [group_a_caption]}},
+    )
+
+    try:
+        move_result = await mcp_session.call_tool(
+            "move_notion_to_group",
+            {"notionCaption": notion_caption, "notionGroupCaption": group_b_caption},
+        )
+        payload = move_result.structuredContent
+        print(json.dumps(payload, indent=2, ensure_ascii=False))
+        assert payload["moved"] is True
+        assert payload["removed_previous_group_edges"] == 1
+
+        notion_vertex = await mcp_session.call_tool("get_notion_by_caption", {"caption": notion_caption})
+        rels = notion_vertex.structuredContent.get("relationships", {})
+        contained_in = rels.get("isContainedIn", [])
+        assert any(e["caption"] == group_b_caption for e in contained_in)
+        assert not any(e["caption"] == group_a_caption for e in contained_in)
+    finally:
+        await mcp_session.call_tool("delete_notion_by_caption", {"caption": notion_caption})
+        await mcp_session.call_tool("delete_notion_group_by_caption", {"caption": group_a_caption})
+        await mcp_session.call_tool("delete_notion_group_by_caption", {"caption": group_b_caption})
+
+@pytest.mark.anyio
 async def test_change_caption(mcp_session):
     prefix = "test_change_caption"
     timestamp = datetime.datetime.now().strftime("%d.%m.%Y %H:%M:%S")

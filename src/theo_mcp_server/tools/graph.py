@@ -681,6 +681,23 @@ def register_graph_tools(mcp: FastMCP) -> None:
             raise ToolError(traceback.format_exc())
 
     @mcp.tool()
+    def move_notion_to_group(
+        ctx: Context[ServerSession, AppContext],
+        notionCaption: str,
+        notionGroupCaption: str,
+    ) -> dict[str, Any]:
+        """Move a notion to another notion group. Both are identified by caption.
+
+        Removes any existing incoming `contains` edges from notionGroups to the notion,
+        then creates a new `contains` edge from the target notionGroup to the notion.
+        """
+        try:
+            g = get_g(ctx)
+            return gremlin_helpers.move_notion_to_group(g, notionCaption, notionGroupCaption)
+        except Exception:
+            raise ToolError(traceback.format_exc())
+
+    @mcp.tool()
     def change_caption(
         ctx: Context[ServerSession, AppContext],
         oldCaption: str,

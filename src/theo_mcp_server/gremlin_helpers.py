@@ -381,4 +381,47 @@ def change_caption(g: GraphTraversalSource, old_caption: str, new_caption: str) 
     vertex = get_unique_vertex_by_caption(g, old_caption)
     g.V(vertex["internal_id"]).property("caption", new_caption).iterate()
     return {"updated": True, "internal_id": vertex["internal_id"], "new_caption": new_caption}
-    
+
+def get_unique_vertex_id_by_caption(g: GraphTraversalSource, caption: str, label: str) -> int:
+    """Return the unique vertex id for a given caption and label, or raise."""
+    ids = g.V().has("caption", caption).hasLabel(label).id_().toList()
+    if not ids:
+        raise ValueError(f"Vertex not found: label={label} caption={caption}")
+    if len(ids) > 1:
+        raise ValueError(f"Ambiguous vertex caption={caption} label={label}")
+    return ids[0]
+
+def move_notion_to_group(
+    g: GraphTraversalSource, notion_caption: str, notion_group_caption: str
+) -> dict[str, Any]:
+    """Move a notion to another notionGroup. Removes any existing incoming
+    `contains` edges from notionGroups and adds a `contains` edge from the
+    target group to the notion.
+    """
+    notion_id = get_unique_vertex_id_by_caption(g, notion_caption, "notion")
+    group_id = get_unique_vertex_id_by_caption(g, notion_group_caption, "notionGroup")
+
+    removed = (
+        g.V(notion_id)
+        .inE("contains")
+        .where(__.outV().hasLabel("notionGroup"))
+        .count()
+        .next()
+    )
+    (
+        g.V(notion_id)
+        .inE("contains")
+        .where(__.outV().hasLabel("notionGroup"))
+        .drop()
+        .iterate()
+    )
+
+    create_edge(g, "contains", group_id, notion_id)
+
+    return {
+        "moved": True,
+        "notion": {"caption": notion_caption, "internal_id": notion_id},
+        "notionGroup": {"caption": notion_group_caption, "internal_id": group_id},
+        "removed_previous_group_edges": int(removed),
+    }
+

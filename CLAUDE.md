@@ -5,6 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Conventions
 
 - Use short git commit comments.
+- All Gremlin traversal code lives in [gremlin_helpers.py](src/theo_mcp_server/gremlin_helpers.py). Tools in `src/theo_mcp_server/tools/` must not build Gremlin queries inline — they should obtain `g` via `get_g(ctx)` and delegate to a helper. Prefer reusing existing helpers (e.g. `get_unique_vertex_by_caption`, `get_unique_vertex_id_by_caption`, `create_edge`, `read_vertex_with_edges`, `delete_vertex_by_id`) before writing new traversals.
 
 ## Project
 
