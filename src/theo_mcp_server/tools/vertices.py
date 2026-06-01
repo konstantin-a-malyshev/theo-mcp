@@ -731,6 +731,27 @@ def register_vertex_tools(mcp: FastMCP) -> None:
             raise ToolError(traceback.format_exc())
         
     @mcp.tool()
+    def create_book(ctx: Context[ServerSession, AppContext], caption: str) -> dict[str, Any]:
+        """Create a book vertex."""
+        try:
+            g = get_g(ctx)
+            return create_vertex_and_connect_by_captions(g, "book", {"caption": caption}, {}, {})
+        except Exception:
+            raise ToolError(traceback.format_exc())
+
+    @mcp.tool()
+    def delete_book_by_caption(ctx: Context[ServerSession, AppContext], caption: str) -> dict[str, Any]:
+        """Delete book by caption."""
+        try:
+            g = get_g(ctx)
+            ids = g.V().has("caption", caption).hasLabel("book").id_().toList()
+            if not ids:
+                raise ValueError(f"Book not found: caption={caption}")
+            return delete_vertex_by_id(g, ids[0])
+        except Exception:
+            raise ToolError(traceback.format_exc())
+
+    @mcp.tool()
     def change_caption(
         ctx: Context[ServerSession, AppContext],
         oldCaption: str,
