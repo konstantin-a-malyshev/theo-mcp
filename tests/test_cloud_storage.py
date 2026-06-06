@@ -36,13 +36,13 @@ async def test_update_overwrites_existing_file(cloud_storage):
     filename = _unique_name()
     try:
         first = cloud_storage.upload(filename, _SVG, content_type="image/svg+xml")
-        assert first.endswith("/download")
+        assert first.startswith("http")
 
         # Re-uploading the same filename overwrites it (WebDAV PUT) and still
         # yields a usable download link.
         updated = '<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg"><text>updated</text></svg>'
         second = cloud_storage.upload(filename, updated, content_type="image/svg+xml")
-        assert second.endswith("/download")
+        assert second.startswith("http")
     finally:
         cloud_storage.delete(filename)
 

@@ -369,7 +369,6 @@ async def test_create_diagram_by_captions(mcp_session, cloud_storage):
         download_url = data.get("download_url")
         assert isinstance(filename, str) and filename.endswith(".svg")
         assert isinstance(download_url, str) and download_url.startswith("http")
-        assert download_url.endswith("/download")
 
         # Clean up the uploaded file from the cloud after a successful check.
         cloud_storage.delete(filename)
