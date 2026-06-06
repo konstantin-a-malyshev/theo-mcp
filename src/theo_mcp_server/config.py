@@ -17,7 +17,6 @@ class Config:
     owncloud_username: str = ""
     owncloud_password: str = ""
     owncloud_token: str = ""  # oCIS app token / OIDC bearer token
-    owncloud_share_password: str = ""  # password for public links (oCIS may enforce one)
     owncloud_remote_dir: str = "theo-diagrams"
     owncloud_verify_ssl: bool = False
 
@@ -42,7 +41,6 @@ def get_config() -> Config:
         owncloud_username=_env("OWNCLOUD_USERNAME", ""),
         owncloud_password=_env("OWNCLOUD_PASSWORD", ""),
         owncloud_token=_env("OWNCLOUD_TOKEN", ""),
-        owncloud_share_password=_env("OWNCLOUD_SHARE_PASSWORD", ""),
         owncloud_remote_dir=_env("OWNCLOUD_REMOTE_DIR", "theo-diagrams"),
         owncloud_verify_ssl=_env_bool("OWNCLOUD_VERIFY_SSL", False),
     )

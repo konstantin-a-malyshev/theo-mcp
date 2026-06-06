@@ -6,7 +6,6 @@ from mcp.server.fastmcp import Context, FastMCP
 from mcp.server.session import ServerSession
 
 from ..gremlin_client import AppContext, get_cloud_storage, get_g
-from ..config import get_config
 from .. import diagram_helpers
 
 
@@ -51,9 +50,4 @@ def register_diagram_tools(mcp: FastMCP) -> None:
         filename = f"diagram-{uuid.uuid4().hex}.svg"
         download_url = cloud_storage.upload(filename, svg, content_type="image/svg+xml")
 
-        result = {"filename": filename, "download_url": download_url}
-        # If public links are password-protected, the recipient needs the password.
-        share_password = get_config().owncloud_share_password
-        if share_password:
-            result["password"] = share_password
-        return result
+        return {"filename": filename, "download_url": download_url}

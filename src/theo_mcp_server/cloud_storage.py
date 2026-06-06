@@ -51,14 +51,12 @@ class OwnCloudStorage:
         token: str,
         *,
         remote_dir: str = "theo-diagrams",
-        share_password: str = "",
         verify_ssl: bool = False,
     ) -> None:
         self._base_url = base_url.rstrip("/")
         self._username = username
         self._token = token
         self._remote_dir = remote_dir.strip("/")
-        self._share_password = share_password
         # The endpoint is reached by IP over HTTPS and typically presents a
         # self-signed certificate, so verification is off by default.
         self._ssl_context = None if verify_ssl else ssl._create_unverified_context()
@@ -70,7 +68,6 @@ class OwnCloudStorage:
             cfg.owncloud_username,
             cfg.owncloud_token,
             remote_dir=cfg.owncloud_remote_dir,
-            share_password=cfg.owncloud_share_password,
             verify_ssl=cfg.owncloud_verify_ssl,
         )
 
@@ -111,11 +108,9 @@ class OwnCloudStorage:
 
     def _create_public_link(self, remote_path: str) -> str:
         url = f"{self._base_url}/ocs/v1.php/apps/files_sharing/api/v1/shares?format=json"
-        params = {"path": f"/{remote_path}", "shareType": "3", "permissions": "1"}
-        # oCIS can enforce a password on public links; include one when configured.
-        if self._share_password:
-            params["password"] = self._share_password
-        body = urlencode(params).encode()
+        body = urlencode(
+            {"path": f"/{remote_path}", "shareType": "3", "permissions": "1"}
+        ).encode()
         try:
             resp = self._request(
                 "POST",
