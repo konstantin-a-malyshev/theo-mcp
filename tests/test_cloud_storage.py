@@ -27,7 +27,6 @@ async def test_upload_returns_download_link(cloud_storage):
         download_url = cloud_storage.upload(filename, _SVG, content_type="image/svg+xml")
         assert isinstance(download_url, str)
         assert download_url.startswith("http")
-        assert download_url.endswith("/download")
     finally:
         cloud_storage.delete(filename)
 

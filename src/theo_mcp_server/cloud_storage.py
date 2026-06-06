@@ -133,7 +133,7 @@ class OwnCloudStorage:
         share_url = payload.get("ocs", {}).get("data", {}).get("url")
         if not share_url:
             raise RuntimeError(f"ownCloud share response missing url: {payload}")
-        return f"{share_url}/download"
+        return share_url
 
     # --- CloudStorage interface ----------------------------------------------
 
