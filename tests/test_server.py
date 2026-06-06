@@ -1,12 +1,19 @@
 import datetime
 import json
 import os
+import sys
 import pytest
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
+_SRC = os.path.join(os.path.dirname(__file__), "..", "src")
+sys.path.insert(0, _SRC)
+
+from theo_mcp_server.cloud_storage import OwnCloudStorage
+from theo_mcp_server.config import get_config
+
 _env = os.environ.copy()
-_env["PYTHONPATH"] = os.path.join(os.path.dirname(__file__), "..", "src")
+_env["PYTHONPATH"] = _SRC
 
 server_params = StdioServerParameters(
     command=os.path.join(".venv", "Scripts", "python.exe"),
@@ -20,6 +27,10 @@ async def mcp_session():
         async with ClientSession(read, write) as session:
             await session.initialize()
             yield session
+
+@pytest.fixture
+def cloud_storage():
+    return OwnCloudStorage.from_config(get_config())
 
 @pytest.mark.anyio
 async def test_get_verse_by_caption(mcp_session):
@@ -336,7 +347,7 @@ async def test_get_notion_groups_tree(mcp_session):
     assert len(dicts) > 0
 
 @pytest.mark.anyio
-async def test_create_diagram_by_captions(mcp_session):
+async def test_create_diagram_by_captions(mcp_session, cloud_storage):
     prefix = "test_create_diagram_by_captions"
     timestamp = datetime.datetime.now().strftime("%d.%m.%Y %H:%M:%S")
     a_caption = f"{prefix}_A_{timestamp}"
@@ -353,10 +364,15 @@ async def test_create_diagram_by_captions(mcp_session):
             "create_diagram_by_captions",
             {"captions": [a_caption, b_caption]},
         )
-        svg = result.structuredContent.get("result")
-        assert isinstance(svg, str)
-        assert svg.lstrip().startswith("<?xml") or svg.lstrip().startswith("<svg")
-        assert "</svg>" in svg
+        data = result.structuredContent
+        filename = data.get("filename")
+        download_url = data.get("download_url")
+        assert isinstance(filename, str) and filename.endswith(".svg")
+        assert isinstance(download_url, str) and download_url.startswith("http")
+        assert download_url.endswith("/download")
+
+        # Clean up the uploaded file from the cloud after a successful check.
+        cloud_storage.delete(filename)
     finally:
         await mcp_session.call_tool("delete_notion_by_caption", {"caption": b_caption})
         await mcp_session.call_tool("delete_notion_by_caption", {"caption": a_caption})

@@ -12,6 +12,7 @@ from gremlin_python.process.graph_traversal import GraphTraversalSource
 from mcp.server.fastmcp import Context, FastMCP
 from mcp.server.session import ServerSession
 
+from .cloud_storage import CloudStorage, OwnCloudStorage
 from .config import get_config
 
 
@@ -19,6 +20,7 @@ from .config import get_config
 class AppContext:
     connection: DriverRemoteConnection
     g: Any  # GraphTraversalSource (gremlin-python type)
+    cloud_storage: CloudStorage
 
 
 def _make_connection() -> DriverRemoteConnection:
@@ -37,9 +39,10 @@ async def app_lifespan(server: FastMCP) -> AsyncIterator[AppContext]:
     """Create & close the Gremlin remote connection once per server lifecycle."""
     conn = _make_connection()
     g = traversal().with_remote(conn)
+    cloud_storage = OwnCloudStorage.from_config(get_config())
 
     try:
-        yield AppContext(connection=conn, g=g)
+        yield AppContext(connection=conn, g=g, cloud_storage=cloud_storage)
     finally:
         try:
             conn.close()
@@ -90,3 +93,7 @@ def get_g(ctx: Context[ServerSession, AppContext]):
         else:
             raise
     return app_ctx.g
+
+
+def get_cloud_storage(ctx: Context[ServerSession, AppContext]) -> CloudStorage:
+    return ctx.request_context.lifespan_context.cloud_storage
