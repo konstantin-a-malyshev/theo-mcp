@@ -18,6 +18,9 @@ def register_diagram_tools(mcp: FastMCP) -> None:
         layout: str = "dot",
         direction: str = "TB",
         include_edge_labels: bool = True,
+        show_quotation_text: bool = False,
+        show_verse_text: bool = False,
+        show_ids: bool = False,
     ) -> dict[str, str]:
         """
         Build an SVG diagram of the induced subgraph for the given vertex captions,
@@ -33,6 +36,9 @@ def register_diagram_tools(mcp: FastMCP) -> None:
             layout: Graphviz layout engine. One of dot, neato, sfdp, circo, fdp, twopi.
             direction: graph orientation for the `dot` engine. One of LR, TB, RL, BT.
             include_edge_labels: whether to print edge type next to each edge.
+            show_quotation_text: if True, include the full text of quotation nodes in the diagram.
+            show_verse_text: if True, include the RST translation text of verse nodes in the diagram.
+            show_ids: if True, append the internal vertex ID to each node label.
 
         Returns:
             A dict with the uploaded `filename` and its public `download_url`.
@@ -44,6 +50,9 @@ def register_diagram_tools(mcp: FastMCP) -> None:
             layout=layout,
             direction=direction,
             include_edge_labels=include_edge_labels,
+            show_quotation_text=show_quotation_text,
+            show_verse_text=show_verse_text,
+            show_ids=show_ids,
         )
 
         cloud_storage = get_cloud_storage(ctx)

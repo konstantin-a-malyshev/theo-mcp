@@ -55,12 +55,34 @@ def _wrap_caption(text: str, width: int = 24) -> str:
     return "\n".join(lines)
 
 
+def _wrap_text(text: str, width: int = 40) -> str:
+    """Soft-wrap a long text into multiple lines."""
+    if not text:
+        return ""
+    words = str(text).split()
+    if not words:
+        return ""
+    lines: list[str] = []
+    current = words[0]
+    for w in words[1:]:
+        if len(current) + 1 + len(w) <= width:
+            current = f"{current} {w}"
+        else:
+            lines.append(current)
+            current = w
+    lines.append(current)
+    return "\n".join(lines)
+
+
 def render_svg(
     vertices: list[dict[str, Any]],
     edges: list[dict[str, Any]],
     layout: str,
     direction: str,
     include_edge_labels: bool,
+    show_quotation_text: bool = False,
+    show_verse_text: bool = False,
+    show_ids: bool = False,
 ) -> str:
     dot = graphviz.Digraph(engine=layout, format="svg")
     dot.attr(rankdir=direction, bgcolor="white", overlap="false", splines="true", pad="0.4")
@@ -69,8 +91,21 @@ def render_svg(
 
     for v in vertices:
         node_id = str(v["internal_id"])
-        label = _wrap_caption(v.get("caption") or node_id)
-        style = _NODE_STYLE.get(v.get("label", ""), _DEFAULT_NODE_STYLE)
+        caption = _wrap_caption(v.get("caption") or node_id)
+        vertex_label = v.get("label", "")
+        extra = ""
+        if show_quotation_text and vertex_label == "quotation":
+            raw = v.get("text") or ""
+            if raw:
+                extra = "\n" + _wrap_text(raw)
+        elif show_verse_text and vertex_label == "verse":
+            raw = v.get("RST") or ""
+            if raw:
+                extra = "\n" + _wrap_text(raw)
+        if show_ids:
+            extra += f"\n[id: {v['internal_id']}]"
+        label = caption + extra
+        style = _NODE_STYLE.get(vertex_label, _DEFAULT_NODE_STYLE)
         dot.node(node_id, label=label, **style)
 
     for e in edges:
@@ -102,6 +137,9 @@ def create_diagram_by_captions(
     layout: str = "dot",
     direction: str = "LR",
     include_edge_labels: bool = True,
+    show_quotation_text: bool = False,
+    show_verse_text: bool = False,
+    show_ids: bool = False,
 ) -> str:
     """Build an SVG diagram of the induced subgraph for the given vertex captions."""
     if layout not in VALID_LAYOUTS:
@@ -124,4 +162,7 @@ def create_diagram_by_captions(
         layout=layout,
         direction=direction,
         include_edge_labels=include_edge_labels,
+        show_quotation_text=show_quotation_text,
+        show_verse_text=show_verse_text,
+        show_ids=show_ids,
     )
