@@ -19,7 +19,7 @@ def register_diagram_tools(mcp: FastMCP) -> None:
         direction: str = "TB",
         include_edge_labels: bool = True,
         show_quotation_text: bool = False,
-        show_verse_text: bool = False,
+        show_verse_text: list[str] | None = None,
         show_ids: bool = False,
     ) -> dict[str, str]:
         """
@@ -37,7 +37,9 @@ def register_diagram_tools(mcp: FastMCP) -> None:
             direction: graph orientation for the `dot` engine. One of LR, TB, RL, BT.
             include_edge_labels: whether to print edge type next to each edge.
             show_quotation_text: if True, include the full text of quotation nodes in the diagram.
-            show_verse_text: if True, include the RST translation text of verse nodes in the diagram.
+            show_verse_text: list of translation version names to display inside verse nodes.
+                Supported values: "RST", "NRSVue". Empty list or null means no text is shown.
+                Versions absent or null on a particular verse are silently skipped.
             show_ids: if True, append the internal vertex ID to each node label.
 
         Returns:
@@ -51,7 +53,7 @@ def register_diagram_tools(mcp: FastMCP) -> None:
             direction=direction,
             include_edge_labels=include_edge_labels,
             show_quotation_text=show_quotation_text,
-            show_verse_text=show_verse_text,
+            show_verse_text=show_verse_text or [],
             show_ids=show_ids,
         )
 

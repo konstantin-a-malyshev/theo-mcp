@@ -81,7 +81,7 @@ def render_svg(
     direction: str,
     include_edge_labels: bool,
     show_quotation_text: bool = False,
-    show_verse_text: bool = False,
+    show_verse_text: list[str] | None = None,
     show_ids: bool = False,
 ) -> str:
     dot = graphviz.Digraph(engine=layout, format="svg")
@@ -99,9 +99,13 @@ def render_svg(
             if raw:
                 extra = "\n" + _wrap_text(raw)
         elif show_verse_text and vertex_label == "verse":
-            raw = v.get("RST") or ""
-            if raw:
-                extra = "\n" + _wrap_text(raw)
+            parts = []
+            for version in show_verse_text:
+                raw = v.get(version) or ""
+                if raw:
+                    parts.append(f"[{version}]\n" + _wrap_text(raw))
+            if parts:
+                extra = "\n" + "\n".join(parts)
         if show_ids:
             extra += f"\n[id: {v['internal_id']}]"
         label = caption + extra
@@ -138,7 +142,7 @@ def create_diagram_by_captions(
     direction: str = "LR",
     include_edge_labels: bool = True,
     show_quotation_text: bool = False,
-    show_verse_text: bool = False,
+    show_verse_text: list[str] | None = None,
     show_ids: bool = False,
 ) -> str:
     """Build an SVG diagram of the induced subgraph for the given vertex captions."""
