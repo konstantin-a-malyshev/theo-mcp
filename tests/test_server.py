@@ -91,6 +91,30 @@ async def test_create_notion(mcp_session):
     assert result.structuredContent["deleted"] is True
 
 @pytest.mark.anyio
+async def test_create_notion_with_description(mcp_session):
+    prefix = "test_create_notion_with_description"
+    timestamp = datetime.datetime.now().strftime("%d.%m.%Y %H:%M:%S")
+    test_caption = f"{prefix}_TEST_{timestamp}"
+
+    test_result = await mcp_session.call_tool(
+        "create_notion", {"caption": test_caption, "description": "initial description"}
+    )
+    assert test_result.structuredContent["created"]["description"] == "initial description"
+
+    test_id = test_result.structuredContent["created"]["internal_id"]
+
+    updated = await mcp_session.call_tool(
+        "change_notion_description", {"caption": test_caption, "description": "updated description"}
+    )
+    assert updated.structuredContent["description"] == "updated description"
+
+    test_vertex = await mcp_session.call_tool("get_notion_by_id", {"id": test_id})
+    assert test_vertex.structuredContent["description"] == "updated description"
+
+    result = await mcp_session.call_tool("delete_notion_by_caption", {"caption": test_caption})
+    assert result.structuredContent["deleted"] is True
+
+@pytest.mark.anyio
 async def test_get_notion_group_by_caption(mcp_session):
     result = await mcp_session.call_tool("get_notion_group_by_caption", {"caption": "Евангелие от Иоанна"})
     dict = result.structuredContent

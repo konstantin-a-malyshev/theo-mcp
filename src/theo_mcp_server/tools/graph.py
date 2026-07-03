@@ -33,10 +33,12 @@ from theo_mcp_server import gremlin_helpers
 def register_graph_tools(mcp: FastMCP) -> None:
 
     @mcp.tool()
-    def create_notion(ctx: Context[ServerSession, AppContext], caption: str, relationships: dict[str, list[str]] | None = None) -> dict[str, Any]:
+    def create_notion(ctx: Context[ServerSession, AppContext], caption: str, description: str | None = None, relationships: dict[str, list[str]] | None = None) -> dict[str, Any]:
         """
             Create a notion vertex.
-            
+
+            `description` is an optional free-text description of the notion.
+
             The following relationships can be specified in the `relationships` parameter:
             - isSupportedBy
             - supports
@@ -47,14 +49,17 @@ def register_graph_tools(mcp: FastMCP) -> None:
             - contains
             - isContainedIn
 
-            Each relationship should map to a list of captions of existing notions, verses, notionGroups, books, verseGroups, or persons.       
+            Each relationship should map to a list of captions of existing notions, verses, notionGroups, books, verseGroups, or persons.
         """
         try:
             edges_in = filter_backward_relationships(relationships or {})
             edges_in = reverse_backward_relationship_keys(edges_in)
             edges_out = filter_direct_relationships(relationships or {})
             g = get_g(ctx)
-            return create_vertex_and_connect_by_captions(g, "notion", {"caption": caption}, edges_out, edges_in)
+            props = {"caption": caption}
+            if description is not None:
+                props["description"] = description
+            return create_vertex_and_connect_by_captions(g, "notion", props, edges_out, edges_in)
         except Exception:
             raise ToolError(traceback.format_exc())
 
@@ -400,6 +405,26 @@ def register_graph_tools(mcp: FastMCP) -> None:
             if not ids:
                 raise ValueError(f"Notion not found: caption={caption}")
 
+            return read_vertex_with_edges(g, ids[0])
+        except Exception:
+            raise ToolError(traceback.format_exc())
+
+    @mcp.tool()
+    def change_notion_description(
+        ctx: Context[ServerSession, AppContext],
+        caption: str,
+        description: str
+    ) -> dict[str, Any]:
+        """
+        Set or update the description of a notion by caption.
+        """
+        try:
+            g = get_g(ctx)
+            ids = g.V().has("caption", caption).hasLabel("notion").id_().toList()
+            if not ids:
+                raise ValueError(f"Notion not found: caption={caption}")
+
+            g.V(ids[0]).property("description", description).iterate()
             return read_vertex_with_edges(g, ids[0])
         except Exception:
             raise ToolError(traceback.format_exc())
