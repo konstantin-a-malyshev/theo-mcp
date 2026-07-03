@@ -103,11 +103,15 @@ See `src/theo_mcp_server/tools/`:
 The tools use your **property** `id` as the public identifier, and also return JanusGraph's internal id
 as `internal_id` in responses (useful for debugging).
 
-## Notes
+## Notes and Conventions
 
 - Caption lookups can be ambiguous (multiple vertices with the same caption). In that case, provide a `label`
   or use `id` instead.
-- gremlinpython must match your server's TinkerPop version. If you run into protocol errors, adjust the pinned
-  version in `pyproject.toml` to match your JanusGraph distribution.
+- `gremlinpython` is pinned to `3.7.3` to match the target JanusGraph/TinkerPop version. Bump deliberately — protocol mismatches surface as opaque errors.
+- In `gremlin_python`, the traversal step for fetching element ids is `.id_()` (trailing underscore), not `.id()`. `.id` is a property on `GraphTraversal`, so calling `.id()` raises `TypeError: 'GraphTraversal' object is not callable`. Always use `.id_()`.
+- Avoid returning full `Vertex` / `Edge` objects from `gremlin_python` 3.7.3 against JanusGraph — the GraphBinaryV1 reader has no handler for `DataType.custom` (0x00) and crashes with `KeyError: <DataType.custom: 0>` when JanusGraph attaches custom-typed property metadata (e.g. `RelationIdentifier`). For existence checks use `is_vertex_existing_by_caption` / `is_vertex_existing_by_id` in [gremlin_helpers.py](src/theo_mcp_server/gremlin_helpers.py); for other reads project to primitives via `valueMap`, `elementMap`, `id_()`, or `project(...)`.
+- The server uses `FastMCP(..., json_response=True)`, so tools should return JSON-serializable dicts/lists; image tools return MCP image content directly.
+- Manual test recipes (curl/Inspector flows) are in [tests/manual-tests.md](tests/manual-tests.md).
+
 
 
