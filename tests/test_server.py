@@ -453,3 +453,43 @@ async def test_change_caption(mcp_session):
 
     delete_result = await mcp_session.call_tool("delete_notion_by_caption", {"caption": new_caption})
     assert delete_result.structuredContent["deleted"] is True
+
+@pytest.mark.anyio
+async def test_create_notion_with_description(mcp_session):
+    prefix = "test_create_notion_with_description"
+    timestamp = datetime.datetime.now().strftime("%d.%m.%Y %H:%M:%S")
+
+    caption = f"{prefix}_{timestamp}"
+    description = "A test description"
+
+    create_result = await mcp_session.call_tool("create_notion", {"caption": caption, "description": description})
+    assert create_result.structuredContent["created"]["description"] == description
+
+    read_result = await mcp_session.call_tool("get_notion_by_caption", {"caption": caption})
+    assert read_result.structuredContent["description"] == description
+
+    delete_result = await mcp_session.call_tool("delete_notion_by_caption", {"caption": caption})
+    assert delete_result.structuredContent["deleted"] is True
+
+@pytest.mark.anyio
+async def test_change_notion_description(mcp_session):
+    prefix = "test_change_notion_description"
+    timestamp = datetime.datetime.now().strftime("%d.%m.%Y %H:%M:%S")
+
+    caption = f"{prefix}_{timestamp}"
+    new_description = "An updated description"
+
+    create_result = await mcp_session.call_tool("create_notion", {"caption": caption})
+    created_id = create_result.structuredContent["created"]["internal_id"]
+    assert "description" not in create_result.structuredContent["created"]
+
+    change_result = await mcp_session.call_tool("change_notion_description", {"caption": caption, "description": new_description})
+    assert change_result.structuredContent["updated"] is True
+    assert change_result.structuredContent["internal_id"] == created_id
+    assert change_result.structuredContent["description"] == new_description
+
+    read_result = await mcp_session.call_tool("get_notion_by_caption", {"caption": caption})
+    assert read_result.structuredContent["description"] == new_description
+
+    delete_result = await mcp_session.call_tool("delete_notion_by_caption", {"caption": caption})
+    assert delete_result.structuredContent["deleted"] is True
