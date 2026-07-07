@@ -24,26 +24,7 @@ directly from the report.
 
 ## Workflow
 
-### 1. Preflight (fail fast with a clear message)
-
-Run these checks first; if one fails, report it as an **environment problem**
-and don't blame the code:
-
-```powershell
-# venv exists
-Test-Path .venv\Scripts\python.exe
-
-# .env exists (holds GREMLIN_URL, oCIS credentials)
-Test-Path .env
-
-# JanusGraph reachable (adjust host/port if GREMLIN_URL in .env differs
-# from the default ws://localhost:8182/gremlin)
-Test-NetConnection localhost -Port 8182 -InformationLevel Quiet
-```
-
-Do **not** print the contents of `.env`.
-
-### 2. Run
+### 1. Run
 
 Invoke pytest through the venv's interpreter — no activation needed, works in
 any shell:
@@ -69,7 +50,7 @@ When fixing a specific bug, prefer the tightest scope (`-k` / node id, plus
 `-x --tb=long -s`) and re-run just that test after each change; run the full
 suite once at the end.
 
-### 3. Classify failures
+### 2. Classify failures
 
 Match failures against these known signatures **before** treating them as
 code bugs:
@@ -87,7 +68,7 @@ code bugs:
 Anything else with a traceback into `src/theo_mcp_server/` is a **code**
 failure — that's the interesting kind.
 
-### 4. Report
+### 3. Report
 
 Structure the report so the reader can start fixing immediately:
 
