@@ -382,6 +382,12 @@ def change_caption(g: GraphTraversalSource, old_caption: str, new_caption: str) 
     g.V(vertex["internal_id"]).property("caption", new_caption).iterate()
     return {"updated": True, "internal_id": vertex["internal_id"], "new_caption": new_caption}
 
+def change_notion_description(g: GraphTraversalSource, caption: str, description: str) -> dict[str, Any]:
+    """Change the description of a notion identified by caption."""
+    notion_id = get_unique_vertex_id_by_caption(g, caption, "notion")
+    g.V(notion_id).property("description", description).iterate()
+    return {"updated": True, "internal_id": notion_id, "caption": caption, "description": description}
+
 def get_unique_vertex_id_by_caption(g: GraphTraversalSource, caption: str, label: str) -> int:
     """Return the unique vertex id for a given caption and label, or raise."""
     ids = g.V().has("caption", caption).hasLabel(label).id_().toList()
