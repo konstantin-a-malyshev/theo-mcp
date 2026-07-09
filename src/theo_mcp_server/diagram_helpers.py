@@ -16,7 +16,7 @@ _NODE_STYLE: dict[str, dict[str, str]] = {
     "verse":        {"shape": "box",        "fillcolor": "#caffbf", "style": "filled,rounded"},
     "verseGroup":   {"shape": "folder",     "fillcolor": "#9bf6ff", "style": "filled"},
     "quotation":    {"shape": "note",       "fillcolor": "#bdb2ff", "style": "filled"},
-    "book":         {"shape": "cylinder",   "fillcolor": "#a0c4ff", "style": "filled"},
+    "book":         {"shape": "box3d",      "fillcolor": "#a0c4ff", "style": "filled"},
     "person":       {"shape": "house",      "fillcolor": "#ffc6ff", "style": "filled"},
 }
 _DEFAULT_NODE_STYLE = {"shape": "box", "fillcolor": "#eeeeee", "style": "filled"}
@@ -115,7 +115,7 @@ def render_svg(
     for e in edges:
         style = _EDGE_STYLE.get(e["label"], _DEFAULT_EDGE_STYLE)
         edge_label = e["label"] if include_edge_labels else ""
-        dot.edge(str(e["from_id"]), str(e["to_id"]), label=edge_label, **style)
+        dot.edge(str(e["from_id"]), str(e["to_id"]), label=edge_label, fontcolor=style["color"], **style)
 
     try:
         svg = dot.pipe(format="svg").decode("utf-8")
@@ -131,6 +131,10 @@ def render_svg(
     # while preserving aspect ratio via the existing viewBox attribute.
     svg = re.sub(r'\bwidth="[\d.]+pt"', 'width="100%"', svg)
     svg = re.sub(r'\s*height="[\d.]+pt"', '', svg)
+
+    # Graphviz hardcodes the "dotted" pattern as 1px dots with 5px gaps and
+    # offers no attribute to change it, so densify the dots in the SVG output.
+    svg = svg.replace('stroke-dasharray="1,5"', 'stroke-dasharray="1,3"')
 
     return svg
 
