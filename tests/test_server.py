@@ -92,10 +92,10 @@ async def test_create_notion(mcp_session):
 
 @pytest.mark.anyio
 async def test_get_notion_group_by_caption(mcp_session):
-    result = await mcp_session.call_tool("get_notion_group_by_caption", {"caption": "Евангелие от Иоанна"})
+    result = await mcp_session.call_tool("get_notion_group_by_caption", {"caption": "John"})
     dict = result.structuredContent
     print(json.dumps(dict, indent=2, ensure_ascii=False))
-    assert dict.get('caption') == "Евангелие от Иоанна"
+    assert dict.get('caption') == "John"
 
 @pytest.mark.anyio
 async def test_create_relationship(mcp_session):
