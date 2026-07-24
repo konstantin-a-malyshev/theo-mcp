@@ -210,3 +210,7 @@ __marimo__/
 
 backup
 tmp
+
+# Claude
+
+.claude
