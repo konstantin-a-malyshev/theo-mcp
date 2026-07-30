@@ -13,7 +13,7 @@ authors = [{name = "Your Team"}]
 dependencies = [
   # Pin gremlinpython to your JanusGraph/TinkerPop version. Gremlin docs show gremlinpython==3.7.3.
   "gremlinpython==3.7.3",
-  "mcp[cli]>=1.0.0",
+  "mcp[cli]>=1.28,<2",
   "graphviz>=0.20",
 ]
 
