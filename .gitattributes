@@ -1,0 +1,5 @@
+* text=auto eol=lf
+
+# cmd.exe can stumble on LF in multi-line constructs.
+*.bat text eol=crlf
+*.cmd text eol=crlf
