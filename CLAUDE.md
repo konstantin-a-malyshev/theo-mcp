@@ -35,10 +35,13 @@ Read from environment (via `python-dotenv`, so a `.env` at repo root is honored)
 - `GREMLIN_TRAVERSAL_SOURCE` (default `g`)
 - `GREMLIN_USERNAME`, `GREMLIN_PASSWORD`
 - `MCP_TRANSPORT` — `stdio` (default) or `streamable-http`
+- `BACKUP_DIR` — absolute path to an existing directory for the graph backup (no default)
+- `BACKUP_EXCLUDED_VERTEX_LABELS` — comma-separated vertex labels to leave out (empty = `verse`)
+- `BACKUP_EXCLUDED_EDGE_LABELS` — comma-separated edge labels to leave out (empty = `next`)
 
 ## Architecture
 
-Entry point [\_\_main\_\_.py](src/theo_mcp_server/__main__.py) calls `app.run(transport=…)` on the `FastMCP` app built in [server.py](src/theo_mcp_server/server.py). `create_mcp()` wires the lifespan and registers tool groups in order: graph → diagram.
+Entry point [\_\_main\_\_.py](src/theo_mcp_server/__main__.py) calls `app.run(transport=…)` on the `FastMCP` app built in [server.py](src/theo_mcp_server/server.py). `create_mcp()` wires the lifespan and registers tool groups in order: graph → diagram → backup.
 
 The Gremlin connection is opened **once per server lifecycle** by `app_lifespan` in [gremlin_client.py](src/theo_mcp_server/gremlin_client.py), which yields an `AppContext(connection, g)` where `g` is a `GraphTraversalSource`. Tools obtain `g` via `get_g(ctx)` from `ctx.request_context.lifespan_context`. There is also `get_g_for_tests()` that opens an independent connection for direct (non-MCP) tests like [tests/test_gremlin.py](tests/test_gremlin.py).
 
@@ -48,6 +51,13 @@ Tool implementations live in [src/theo_mcp_server/tools/](src/theo_mcp_server/to
 
 - `graph.py` — all graph MCP tools: CRUD for notions/notionGroups/verses/verseGroups/quotations/books, relationships, search, trees, caption rename.
 - `diagram.py` — Graphviz-based SVG diagram generation (`create_diagram_by_captions`, `change_caption`). Depends on the `graphviz` Python package and the system `dot` binary being on PATH.
+- `backup.py` — `create_graph_backup`, the JSON export of the whole graph. Serialization and file writing live in [backup.py](src/theo_mcp_server/backup.py) (module, not the tool file); the Gremlin reads are `export_vertices_by_type` / `export_edges_for_types` in `gremlin_helpers.py`.
+
+`export_edges_for_types` makes **three** passes, not two: outgoing edges of exported vertices, incoming ones from non-exported sources, and edges between two non-exported vertices (`verse -isParallelTo-> verse`). Dropping the third pass silently loses edges that no import can rebuild. Excluded edge labels (`next` by default) must be filtered inside the traversal — `next` is one edge per verse (~37k) and would otherwise cross the wire only to be discarded.
+
+### Backup determinism
+
+The backup overwrites the same files on every run because the target directory is a git repository — the diff between two runs is the point. Anything that breaks byte-for-byte stability breaks the feature: keep vertices sorted by `id`, edges sorted by `(source id, target id, edge label)`, multi-valued properties sorted, `json.dumps(..., sort_keys=True, ensure_ascii=False, indent=2)`, files written as **bytes** (text mode would emit CRLF on Windows), and no timestamps outside `manifest.json`. All reads complete before the first write, so a failed traversal never leaves a half-updated backup.
 
 Shared Gremlin query/transformation logic is in [gremlin_helpers.py](src/theo_mcp_server/gremlin_helpers.py) (e.g., `create_vertex_and_connect_by_captions`, `read_vertex_with_edges`, `build_notion_groups_tree`, `flatten_value_map`, `filter_direct_relationships` / `filter_backward_relationships`, `reverse_backward_relationship_keys`). Edits to vertex/edge behavior should typically go here rather than being duplicated across tool modules.
 
@@ -62,6 +72,8 @@ The schema historically used both `isSupportedBy`/`supportedBy` and `isChallenge
 ## Notes
 
 - `gremlinpython` is pinned to `3.7.3` to match the target JanusGraph/TinkerPop version. Bump deliberately — protocol mismatches surface as opaque errors.
+- JanusGraph does not index vertex labels, so `hasLabel(...)` degrades into a scan. Select vertices with `has("type", ...)` (or `has("type", P.within([...]))`) in any traversal that is not already narrowed by an indexed property such as `caption`.
+- Inside `project(...)`, a `by()` traversal that yields nothing silently drops the **entire row**. Wrap property reads in `coalesce`, e.g. `.by(__.coalesce(__.values("caption"), __.constant("")))` — otherwise a vertex missing that property makes its rows disappear with no error.
 - In `gremlin_python`, the traversal step for fetching element ids is `.id_()` (trailing underscore), not `.id()`. `.id` is a property on `GraphTraversal`, so calling `.id()` raises `TypeError: 'GraphTraversal' object is not callable`. Always use `.id_()`.
 - Avoid returning full `Vertex` / `Edge` objects from `gremlin_python` 3.7.3 against JanusGraph — the GraphBinaryV1 reader has no handler for `DataType.custom` (0x00) and crashes with `KeyError: <DataType.custom: 0>` when JanusGraph attaches custom-typed property metadata (e.g. `RelationIdentifier`). For existence checks use `is_vertex_existing_by_caption` / `is_vertex_existing_by_id` in [gremlin_helpers.py](src/theo_mcp_server/gremlin_helpers.py); for other reads project to primitives via `valueMap`, `elementMap`, `id_()`, or `project(...)`.
 - The server uses `FastMCP(..., json_response=True)`, so tools should return JSON-serializable dicts/lists; image tools return MCP image content directly.

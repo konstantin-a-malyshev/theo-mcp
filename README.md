@@ -68,6 +68,9 @@ Environment variables:
   (see [Getting an ownCloud API token](#getting-an-owncloud-api-token))
 - `OWNCLOUD_REMOTE_DIR` (default: `theo-diagrams`) — remote folder diagrams are uploaded into
 - `OWNCLOUD_VERIFY_SSL` (default: `false`) — verify the ownCloud TLS certificate
+- `BACKUP_DIR` — absolute path to the graph backup directory (see [Graph backup](#graph-backup))
+- `BACKUP_EXCLUDED_VERTEX_LABELS` (default: `verse`) — comma-separated vertex labels to leave out
+- `BACKUP_EXCLUDED_EDGE_LABELS` (default: `next`) — comma-separated edge labels to leave out
 
 See `.env.example` for a full template.
 
@@ -183,12 +186,103 @@ pytest -s
 }
 ```
 
+## Graph backup
+
+The `create_graph_backup` tool exports the knowledge graph to JSON files on the machine running the
+MCP server, **overwriting the previous backup in place**. The backup directory is meant to be a
+separate git repository: every run rewrites the same files deterministically, so `git diff` between
+two runs shows exactly what changed in the graph.
+
+### Configure
+
+```bash
+# Absolute path to an existing directory. The tool never creates it, so that a
+# typo cannot send months of backups into the wrong place.
+BACKUP_DIR=C:\Users\me\private_repos\theo-graph-backup
+# What to leave out. Both are optional; empty means the default shown below.
+BACKUP_EXCLUDED_VERTEX_LABELS=verse
+BACKUP_EXCLUDED_EDGE_LABELS=next
+```
+
+Verse *vertices* are excluded by default: they are re-imported from the Bible source rather than
+restored from a backup. Verse *edges* are a different matter — only `next`, the verse chain, is left
+out, because the verse import rebuilds it. Everything else, including
+`verse -isParallelTo-> verse`, is backed up: nothing else can reconstruct those links.
+
+Recommended `.gitattributes` in the backup repository — the tool always writes LF, and this keeps
+`core.autocrlf` from rewriting the line endings on checkout:
+
+```
+* text eol=lf
+```
+
+### Layout
+
+```
+manifest.json          export time, exported types, counts, health warnings
+vertices/notion.json   one file per vertex type, vertices sorted by id
+vertices/...
+edges.json             every edge with at least one exported endpoint
+```
+
+Vertex record — properties are copied verbatim, so a schema addition never silently drops data:
+
+```json
+{
+  "id": 122884320,
+  "label": "notion",
+  "properties": { "caption": "Тема \"Час Иисуса\"", "type": "notion" }
+}
+```
+
+Edge record — sorted by source id, then target id, then edge label:
+
+```json
+{
+  "label": "isSupportedBy",
+  "source": { "id": 122884320, "type": "notion", "caption": "Тема \"Час Иисуса\"", "exported": true },
+  "target": { "id": 15372320, "type": "verse", "caption": "Jn 1:1", "exported": false }
+}
+```
+
+Every edge of the graph is exported except the excluded labels — those touching an excluded vertex
+(`notion -> verse`) as well as those between two excluded vertices
+(`verse -isParallelTo-> verse`). The type and caption of both endpoints are stored, which makes the
+endpoints resolvable in another database and readable by a human reviewing the file.
+`"exported": false` marks an endpoint that is not in this backup.
+
+Only `manifest.json` carries `exported_at`; the data files hold no timestamps, so a run never dirties
+a file whose content did not change.
+
+### What the tool returns
+
+Vertex counts by type, edge counts by label and by endpoint-type signature (`notion -refersTo-> verse`),
+per-file sizes, removed stale files, run duration, and health warnings — vertices carrying no `type`
+property (which are in the graph but not in the backup) and duplicate captions (which break every
+caption-based tool in the server).
+
+On failure it returns a structured diagnosis: the stage that broke, whether anything reached the disk,
+and what had already been done. Reads all happen before any write, so a failing traversal leaves the
+backup directory untouched. If a write fails, the diagnosis says so and the fix is
+`git checkout -- .` in the backup repository.
+
+### Restoring into another graph
+
+1. For each `vertices/<type>.json`, create the vertices with `addV(label)` and the `properties` bag
+   verbatim, dropping the backup `id`. Keep a map `backup_id -> new_id`.
+2. Import the verses separately from the Bible source — that also rebuilds the `next` chain, which is
+   the one thing the backup deliberately omits (`manifest.json` lists it under
+   `edges.excluded_labels`).
+3. For each edge in `edges.json`, resolve both endpoints: through the id map when `"exported": true`,
+   and by `caption` lookup otherwise (that is the verse case, on either or both ends).
+
 ## Tool overview
 
 See `src/theo_mcp_server/tools/`:
 - `graph.py`: create/read/update/delete/list/find for notions, notionGroups, verses, verseGroups, quotations, books; relationships; search; trees; caption rename
 - `diagram.py`: `create_diagram_by_captions` — Graphviz SVG diagram, returned as a download link
   (see [Diagrams](#diagrams)); needs the system `dot` binary
+- `backup.py`: `create_graph_backup` — JSON export of the whole graph (see [Graph backup](#graph-backup))
 
 The tools use your **property** `id` as the public identifier, and also return JanusGraph's internal id
 as `internal_id` in responses (useful for debugging).

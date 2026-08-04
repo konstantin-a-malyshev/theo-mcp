@@ -9,6 +9,7 @@ from mcp.server.fastmcp import Context
 from mcp.server.session import ServerSession
 
 from .gremlin_client import AppContext, get_g
+from .schema import LABELS_CANON
 from .validation import normalize_label, normalize_edge_label, validate_and_fix_properties
 
 # Valid quotation statuses
@@ -390,6 +391,108 @@ def get_unique_vertex_id_by_caption(g: GraphTraversalSource, caption: str, label
     if len(ids) > 1:
         raise ValueError(f"Ambiguous vertex caption={caption} label={label}")
     return ids[0]
+
+EDGE_EXPORT_KEYS = (
+    "label",
+    "source_id",
+    "source_type",
+    "source_caption",
+    "target_id",
+    "target_type",
+    "target_caption",
+)
+
+
+def _by_edge_export(t: Any) -> Any:
+    """Attach the endpoint projections used by `export_edges_for_types`.
+
+    `coalesce` is mandatory on every `values(...)`: inside `project(...)` a `by()`
+    traversal that yields nothing drops the *whole row* silently, so a vertex
+    without a `caption` (or without `type`) would make its edges vanish from the
+    backup without any error.
+    """
+    return (
+        t.by(__.label())
+        .by(__.outV().id_())
+        .by(__.coalesce(__.outV().values("type"), __.outV().label()))
+        .by(__.coalesce(__.outV().values("caption"), __.constant("")))
+        .by(__.inV().id_())
+        .by(__.coalesce(__.inV().values("type"), __.inV().label()))
+        .by(__.coalesce(__.inV().values("caption"), __.constant("")))
+    )
+
+
+def export_vertices_by_type(g: GraphTraversalSource, type: str) -> list[dict[str, Any]]:
+    """Read every vertex of the given `type` with all its properties.
+
+    Selection goes through the `type` property rather than `hasLabel`, because
+    JanusGraph does not index vertex labels.
+    """
+    raw = g.V().has("type", type).valueMap(True).toList()
+    return [flatten_value_map(r) for r in raw]
+
+
+def _drop_edge_labels(t: Any, excluded_edge_labels: list[str]) -> Any:
+    """Filter unwanted edge labels *server-side*.
+
+    This must happen before `project(...)`: the excluded set is dominated by the
+    `next` chain between verses, which is one edge per verse and would otherwise
+    be shipped over the wire only to be thrown away.
+    """
+    if not excluded_edge_labels:
+        return t
+    return t.not_(__.hasLabel(*excluded_edge_labels))
+
+
+def export_edges_for_types(
+    g: GraphTraversalSource,
+    types: list[str],
+    excluded_edge_labels: list[str] | None = None,
+) -> list[dict[str, Any]]:
+    """Read every edge of the graph except the excluded labels.
+
+    Three disjoint passes, all driven by the indexed `type` property:
+
+    1. outgoing edges of the exported vertices;
+    2. incoming ones whose source is *not* exported (`verse -> notion`);
+    3. edges between two non-exported vertices (`verse -isParallelTo-> verse`),
+       which neither of the first two passes can see.
+
+    No dedup — parallel edges are real data and must survive the round trip.
+    """
+    types = list(types)
+    excluded = list(excluded_edge_labels or [])
+    other_types = sorted(set(LABELS_CANON.values()) - set(types))
+
+    outgoing = _by_edge_export(
+        _drop_edge_labels(g.V().has("type", P.within(types)).outE(), excluded)
+        .project(*EDGE_EXPORT_KEYS)
+    ).toList()
+
+    incoming = _by_edge_export(
+        _drop_edge_labels(g.V().has("type", P.within(types)).inE(), excluded)
+        .where(__.not_(__.outV().has("type", P.within(types))))
+        .project(*EDGE_EXPORT_KEYS)
+    ).toList()
+
+    between_others: list[Any] = []
+    if other_types:
+        between_others = _by_edge_export(
+            _drop_edge_labels(
+                g.V().has("type", P.within(other_types)).outE(), excluded
+            )
+            .where(__.inV().has("type", P.within(other_types)))
+            .project(*EDGE_EXPORT_KEYS)
+        ).toList()
+
+    return [dict(row) for row in outgoing + incoming + between_others]
+
+
+def count_vertices(g: GraphTraversalSource, types: list[str] | None = None) -> int:
+    """Count all vertices, or only those carrying one of the given `type` values."""
+    t = g.V() if types is None else g.V().has("type", P.within(list(types)))
+    return int(t.count().next())
+
 
 def move_notion_to_group(
     g: GraphTraversalSource, notion_caption: str, notion_group_caption: str

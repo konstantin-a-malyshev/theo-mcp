@@ -3,6 +3,7 @@ from __future__ import annotations
 from mcp.server.fastmcp import FastMCP
 
 from .gremlin_client import app_lifespan
+from .tools.backup import register_backup_tools
 from .tools.diagram import register_diagram_tools
 from .tools.graph import register_graph_tools
 
@@ -13,6 +14,7 @@ def create_mcp() -> FastMCP:
     # Register tools in a predictable order
     register_graph_tools(mcp)
     register_diagram_tools(mcp)
+    register_backup_tools(mcp)
 
     return mcp
 

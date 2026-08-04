@@ -19,6 +19,16 @@ class Config:
     owncloud_token: str = ""  # oCIS app token / OIDC bearer token
     owncloud_remote_dir: str = "theo-diagrams"
     owncloud_verify_ssl: bool = False
+    # Absolute path to the directory the graph backup is written into. It is
+    # meant to be a separate git repository, so there is no default — see
+    # backup.resolve_backup_dir().
+    backup_dir: str = ""
+    # Comma-separated vertex labels never written to the backup. Empty means the
+    # default, "verse" — verses are re-imported from the Bible source.
+    backup_excluded_vertex_labels: str = ""
+    # Comma-separated edge labels never written to the backup. Empty means the
+    # default, "next" — the verse chain, which the verse import rebuilds.
+    backup_excluded_edge_labels: str = ""
 
 def _env(name: str, default: str) -> str:
     v = os.getenv(name)
@@ -43,4 +53,7 @@ def get_config() -> Config:
         owncloud_token=_env("OWNCLOUD_TOKEN", ""),
         owncloud_remote_dir=_env("OWNCLOUD_REMOTE_DIR", "theo-diagrams"),
         owncloud_verify_ssl=_env_bool("OWNCLOUD_VERIFY_SSL", False),
+        backup_dir=_env("BACKUP_DIR", ""),
+        backup_excluded_vertex_labels=_env("BACKUP_EXCLUDED_VERTEX_LABELS", ""),
+        backup_excluded_edge_labels=_env("BACKUP_EXCLUDED_EDGE_LABELS", ""),
     )
