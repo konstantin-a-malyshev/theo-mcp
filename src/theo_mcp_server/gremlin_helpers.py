@@ -383,6 +383,25 @@ def change_caption(g: GraphTraversalSource, old_caption: str, new_caption: str) 
     g.V(vertex["internal_id"]).property("caption", new_caption).iterate()
     return {"updated": True, "internal_id": vertex["internal_id"], "new_caption": new_caption}
 
+def update_vertex_properties_by_caption(
+    g: GraphTraversalSource,
+    label: str,
+    caption: str,
+    properties: dict[str, Any],
+) -> dict[str, Any]:
+    """Update properties of the unique vertex with the given caption and label."""
+    label = normalize_label(label)
+    props = validate_and_fix_properties(label, properties, require_required=False)
+    if not props:
+        raise ValueError("No properties to update")
+
+    id = get_unique_vertex_id_by_caption(g, caption, label)
+    t = g.V(id)
+    for k, v in props.items():
+        t = t.property(k, v)
+    t.iterate()
+    return read_vertex_with_edges(g, id)
+
 def get_unique_vertex_id_by_caption(g: GraphTraversalSource, caption: str, label: str) -> int:
     """Return the unique vertex id for a given caption and label, or raise."""
     ids = g.V().has("caption", caption).hasLabel(label).id_().toList()

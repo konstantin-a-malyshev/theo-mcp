@@ -283,6 +283,54 @@ async def test_quotation_lifecycle(mcp_session):
     assert quotation["position"] == position
     assert quotation["status"] == "new"
 
+    new_text = f"Updated quotation text {timestamp}"
+    update_text_result = await mcp_session.call_tool(
+        "update_quotation",
+        {"caption": caption, "text": new_text},
+    )
+    text_updated_quotation = update_text_result.structuredContent
+
+    assert text_updated_quotation["caption"] == caption
+    assert text_updated_quotation["text"] == new_text
+    # untouched fields keep their values
+    assert text_updated_quotation["book"] == book
+    assert text_updated_quotation["position"] == position
+    assert text_updated_quotation["status"] == "new"
+
+    new_book = f"Updated Book {timestamp}"
+    new_position = "p. 2"
+    update_many_result = await mcp_session.call_tool(
+        "update_quotation",
+        {
+            "caption": caption,
+            "book": new_book,
+            "position": new_position,
+            "status": "suspended",
+        },
+    )
+    many_updated_quotation = update_many_result.structuredContent
+
+    assert many_updated_quotation["text"] == new_text
+    assert many_updated_quotation["book"] == new_book
+    assert many_updated_quotation["position"] == new_position
+    assert many_updated_quotation["status"] == "suspended"
+
+    get_updated_fields_result = await mcp_session.call_tool("get_quotation_by_caption", {"caption": caption})
+    reread_quotation = get_updated_fields_result.structuredContent
+
+    assert reread_quotation["text"] == new_text
+    assert reread_quotation["book"] == new_book
+    assert reread_quotation["position"] == new_position
+
+    empty_update_result = await mcp_session.call_tool("update_quotation", {"caption": caption})
+    assert empty_update_result.isError
+
+    invalid_status_result = await mcp_session.call_tool(
+        "update_quotation",
+        {"caption": caption, "status": "bogus"},
+    )
+    assert invalid_status_result.isError
+
     set_status_result = await mcp_session.call_tool(
         "set_quotation_status",
         {"caption": caption, "status": "processed"},

@@ -24,6 +24,7 @@ from ..gremlin_helpers import (
     create_edge,
     search_vertices,
     flatten_value_map,
+    update_vertex_properties_by_caption,
     validate_quotation_status,
 )
 from ..validation import normalize_edge_label, normalize_label, validate_and_fix_properties
@@ -627,7 +628,41 @@ def register_graph_tools(mcp: FastMCP) -> None:
         except Exception:
             raise ToolError(traceback.format_exc()) 
 
-    @mcp.tool()    
+    @mcp.tool()
+    def update_quotation(
+        ctx: Context[ServerSession, AppContext],
+        caption: str,
+        text: str | None = None,
+        book: str | None = None,
+        position: str | None = None,
+        status: str | None = None
+    ) -> dict[str, Any]:
+        """
+        Update an existing quotation, found by caption.
+
+        Only the fields that are passed are changed; the ones left out keep their
+        current values. At least one field must be given.
+        Valid statuses: new, suspended, processed.
+        Use `change_caption` to rename a quotation.
+        """
+        try:
+            if status is not None:
+                validate_quotation_status(status)
+
+            props = {
+                "text": text,
+                "book": book,
+                "position": position,
+                "status": status,
+            }
+            props = {k: v for k, v in props.items() if v is not None}
+
+            g = get_g(ctx)
+            return update_vertex_properties_by_caption(g, "quotation", caption, props)
+        except Exception:
+            raise ToolError(traceback.format_exc())
+
+    @mcp.tool()
     def delete_quotation_by_caption(
         ctx: Context[ServerSession, AppContext],
         caption: str
