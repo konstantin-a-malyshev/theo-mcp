@@ -225,6 +225,35 @@ def read_vertex_with_edges(g: GraphTraversalSource, id: int) -> dict[str, Any]:
 
     return vertex
 
+# Fields of the containing receptionWork that are returned alongside a passage.
+RECEPTION_WORK_SUMMARY_PROPS = ("caption", "tlgAuthorId", "corpusPath", "ctsUrn")
+
+
+def read_reception_passage_with_work(g: GraphTraversalSource, id: int) -> dict[str, Any]:
+    """Read a receptionPassage with its edges, plus a summary of its receptionWork.
+
+    The summary carries just enough to locate the text in the normalized corpus.
+    Every property read is wrapped in `coalesce` because most of them are empty
+    until the work is matched to the corpus, and a `by()` that yields nothing
+    would drop the whole row.
+    """
+    passage = read_vertex_with_edges(g, id)
+
+    t = (
+        g.V(id)
+        .in_("contains")
+        .has("type", "receptionWork")
+        .project("internal_id", *RECEPTION_WORK_SUMMARY_PROPS)
+        .by(T.id)
+    )
+    for prop in RECEPTION_WORK_SUMMARY_PROPS:
+        t = t.by(__.coalesce(__.values(prop), __.constant("")))
+
+    works = t.toList()
+    passage["receptionWork"] = works[0] if works else None
+    return passage
+
+
 def delete_vertex_by_id(g: GraphTraversalSource, id: int) -> dict[str, Any]:
     """Delete a vertex (and all incident edges) by id."""
     raw = g.V(id).valueMap(True).toList()

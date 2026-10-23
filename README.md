@@ -8,6 +8,8 @@ Vertex labels supported:
 - `notion`
 - `person`
 - `scholarlyWork`
+- `receptionWork`
+- `receptionPassage`
 - `verse`
 - `quotation`
 - `notionGroup`
@@ -279,7 +281,7 @@ backup directory untouched. If a write fails, the diagnosis says so and the fix 
 ## Tool overview
 
 See `src/theo_mcp_server/tools/`:
-- `graph.py`: create/read/update/delete/list/find for notions, notionGroups, verses, verseGroups, quotations, scholarlyWorks; relationships; search; trees; caption rename
+- `graph.py`: create/read/update/delete/list/find for notions, notionGroups, verses, verseGroups, quotations, scholarlyWorks, receptionWorks, receptionPassages; relationships; search; trees; caption rename
 - `diagram.py`: `create_diagram_by_captions` — Graphviz SVG diagram, returned as a download link
   (see [Diagrams](#diagrams)); needs the system `dot` binary
 - `backup.py`: `create_graph_backup` — JSON export of the whole graph (see [Graph backup](#graph-backup))

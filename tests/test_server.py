@@ -446,6 +446,100 @@ async def test_create_scholarly_work(mcp_session):
     delete_result = await mcp_session.call_tool("delete_scholarly_work_by_caption", {"caption": caption})
     assert delete_result.structuredContent["deleted"] is True
 
+
+@pytest.mark.anyio
+async def test_reception_work_and_passage(mcp_session):
+    prefix = "test_reception"
+    timestamp = datetime.datetime.now().strftime("%d.%m.%Y %H:%M:%S")
+
+    work_caption = f"{prefix}_WORK_{timestamp}"
+    passage_caption = f"{prefix}_PASSAGE_{timestamp}"
+    verse_caption = "Jn 8:21"
+
+    work_result = await mcp_session.call_tool(
+        "create_reception_work",
+        {
+            "caption": work_caption,
+            "properties": {
+                "titleLatin": "Apologia",
+                "tlgAuthorId": "tlg0645",
+                "corpusPath": "tlg0645_JUSTINUS_MARTYR/tlg0645.001_Apologia/tlg0645.001_Apologia.xml",
+                "ctsUrn": "urn:cts:greekLit:tlg0645.tlg001",
+                "language": "grc",
+                "fragmentary": "False",
+                "dateNotBefore": "150",
+            },
+        },
+    )
+    created_work = work_result.structuredContent["created"]
+    assert created_work["label"] == "receptionWork"
+    assert created_work["tlgAuthorId"] == "tlg0645"
+    assert created_work["fragmentary"] is False
+    assert created_work["dateNotBefore"] == 150
+
+    passage_result = await mcp_session.call_tool(
+        "create_reception_passage",
+        {
+            "caption": passage_caption,
+            "properties": {
+                "reference": verse_caption,
+                "referenceSystem": "NTG",
+                "referenceType": "quotation",
+                "edition": "Goodspeed",
+                "locusStart": "2.1",
+                "pageStart": "26",
+                "lineStart": "1",
+                "ctsUrn": "urn:cts:greekLit:tlg0645.tlg001:2.1.1",
+                "ctsUrnStatus": "exact",
+                "sourceKey": f"test:{timestamp}",
+            },
+            "relationships": {
+                "isContainedIn": [work_caption],
+                "refersTo": [verse_caption],
+            },
+        },
+    )
+    created_passage = passage_result.structuredContent["created"]
+    assert created_passage["label"] == "receptionPassage"
+    assert created_passage["pageStart"] == 26
+
+    get_result = await mcp_session.call_tool(
+        "get_reception_passage_by_caption", {"caption": passage_caption}
+    )
+    passage = get_result.structuredContent
+    print(json.dumps(passage, indent=2, ensure_ascii=False))
+
+    assert passage["caption"] == passage_caption
+    assert any(
+        edge["caption"] == verse_caption for edge in passage["relationships"]["refersTo"]
+    )
+    # the containing work is summarised alongside the passage
+    assert passage["receptionWork"]["caption"] == work_caption
+    assert passage["receptionWork"]["tlgAuthorId"] == "tlg0645"
+    assert passage["receptionWork"]["ctsUrn"] == "urn:cts:greekLit:tlg0645.tlg001"
+    assert passage["receptionWork"]["corpusPath"].endswith("tlg0645.001_Apologia.xml")
+
+    updated = await mcp_session.call_tool(
+        "update_reception_passage",
+        {"caption": passage_caption, "properties": {"textRu": "Я отхожу", "certainty": "uncertain"}},
+    )
+    assert updated.structuredContent["textRu"] == "Я отхожу"
+    assert updated.structuredContent["certainty"] == "uncertain"
+
+    search_result = await mcp_session.call_tool(
+        "search_reception_works_and_passages", {"searchText": f"{prefix}_", "limit": 10}
+    )
+    found = {row["caption"] for row in search_result.structuredContent["result"]}
+    assert {work_caption, passage_caption} <= found
+
+    for tool, caption in (
+        ("delete_reception_passage_by_caption", passage_caption),
+        ("delete_reception_work_by_caption", work_caption),
+    ):
+        delete_result = await mcp_session.call_tool(tool, {"caption": caption})
+        assert delete_result.structuredContent["deleted"] is True
+
+
 @pytest.mark.anyio
 async def test_move_notion_to_group(mcp_session):
     prefix = "test_move_notion_to_group"

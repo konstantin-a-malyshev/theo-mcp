@@ -47,11 +47,13 @@ The Gremlin connection is opened **once per server lifecycle** by `app_lifespan`
 
 Schema (vertex labels, allowed/required props, edge labels) is centralized in [schema.py](src/theo_mcp_server/schema.py). All user-supplied labels and properties flow through [validation.py](src/theo_mcp_server/validation.py) (`normalize_label`, `normalize_edge_label`, `validate_and_fix_properties`) before reaching Gremlin. Label inputs are case-insensitive; canonical forms are defined by `LABELS_CANON`.
 
-The vertex type `book` was renamed to `scholarlyWork` (a modern academic study of the Bible); the planned siblings are `biblicalBook` and `receptionWork`. The *properties* named `book` on `quotation` (the work a quotation comes from) and on `verse` (the biblical book, next to `bookShort`) keep that name — renaming them means migrating vertex data, not just code. `scripts/retype_vertices.py` moves existing vertices between types.
+The vertex type `book` was renamed to `scholarlyWork` (a modern academic study of the Bible); `receptionWork` + `receptionPassage` (pre-critical reception of Scripture) exist alongside it, and `biblicalBook` is still planned. The *properties* named `book` on `quotation` (the work a quotation comes from) and on `verse` (the biblical book, next to `bookShort`) keep that name — renaming them means migrating vertex data, not just code. `scripts/retype_vertices.py` moves existing vertices between types.
+
+The reception types are documented in [docs/reception-schema.md](docs/reception-schema.md): what each property means, which ones come from biblIndex and which stay empty until the work is matched to the normalized corpus. Two rules carry the design: `corpusPath` (path of the work's file from the corpus root) is what proves the link to the text is established, and the locus as the source prints it (`edition` + `locus*`/`page*`/`line*`) is kept apart from `ctsUrn` + `ctsUrnStatus`, the resolved pointer — an unresolved passage must not pass for a resolved one. `tlgAuthorId` on `receptionWork` is temporary, duplicated from the author for bulk corpus matching.
 
 Tool implementations live in [src/theo_mcp_server/tools/](src/theo_mcp_server/tools):
 
-- `graph.py` — all graph MCP tools: CRUD for notions/notionGroups/verses/verseGroups/quotations/scholarlyWorks, relationships, search, trees, caption rename.
+- `graph.py` — all graph MCP tools: CRUD for notions/notionGroups/verses/verseGroups/quotations/scholarlyWorks/receptionWorks/receptionPassages, relationships, search, trees, caption rename.
 - `diagram.py` — Graphviz-based SVG diagram generation (`create_diagram_by_captions`, `change_caption`). Depends on the `graphviz` Python package and the system `dot` binary being on PATH.
 - `backup.py` — `create_graph_backup`, the JSON export of the whole graph. Serialization and file writing live in [backup.py](src/theo_mcp_server/backup.py) (module, not the tool file); the Gremlin reads are `export_vertices_by_type` / `export_edges_for_types` in `gremlin_helpers.py`.
 

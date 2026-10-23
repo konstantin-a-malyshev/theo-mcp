@@ -17,6 +17,8 @@ _NODE_STYLE: dict[str, dict[str, str]] = {
     "verseGroup":   {"shape": "folder",     "fillcolor": "#9bf6ff", "style": "filled"},
     "quotation":    {"shape": "note",       "fillcolor": "#bdb2ff", "style": "filled"},
     "scholarlyWork": {"shape": "box3d",     "fillcolor": "#a0c4ff", "style": "filled"},
+    "receptionWork": {"shape": "box3d",     "fillcolor": "#ffadad", "style": "filled"},
+    "receptionPassage": {"shape": "note",   "fillcolor": "#fdc5c5", "style": "filled"},
     "person":       {"shape": "house",      "fillcolor": "#ffc6ff", "style": "filled"},
 }
 _DEFAULT_NODE_STYLE = {"shape": "box", "fillcolor": "#eeeeee", "style": "filled"}

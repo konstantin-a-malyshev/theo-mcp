@@ -2,7 +2,41 @@ from __future__ import annotations
 
 from typing import Any
 
-from .schema import ALLOWED_EDGE_LABELS, ALLOWED_PROPS, LABELS_CANON, REQUIRED_PROPS
+from .schema import (
+    ALLOWED_EDGE_LABELS,
+    ALLOWED_PROPS,
+    LABELS_CANON,
+    RECEPTION_PASSAGE_ENUMS,
+    REQUIRED_PROPS,
+)
+
+# Properties stored as integers, per label.
+INT_PROPS: dict[str, tuple[str, ...]] = {
+    "verse": ("chapter", "importIndex", "verse"),
+    "quotation": ("importIndex",),
+    "receptionWork": ("dateNotBefore", "dateNotAfter"),
+    "receptionPassage": ("pageStart", "pageEnd", "lineStart", "lineEnd"),
+}
+
+# Properties stored as booleans, per label.
+BOOL_PROPS: dict[str, tuple[str, ...]] = {
+    "receptionWork": ("fragmentary",),
+}
+
+_TRUE = {"true", "1", "yes"}
+_FALSE = {"false", "0", "no"}
+
+
+def _coerce_bool(key: str, value: Any) -> bool:
+    """Parse a boolean property. Strings are explicit: bool('False') is True."""
+    if isinstance(value, bool):
+        return value
+    text = str(value).strip().lower()
+    if text in _TRUE:
+        return True
+    if text in _FALSE:
+        return False
+    raise ValueError(f"Property '{key}' must be a boolean, got {value!r}")
 
 
 def normalize_label(label: str) -> str:
@@ -38,9 +72,20 @@ def validate_and_fix_properties(label: str, props: dict[str, Any], require_requi
     out: dict[str, Any] = dict(props)
 
     # Coerce ints where expected
-    if label == "verse":
-        for k in ("chapter", "importIndex", "verse"):
-            if k in out and out[k] is not None:
-                out[k] = int(out[k])
+    for k in INT_PROPS.get(label, ()):
+        if k in out and out[k] is not None:
+            out[k] = int(out[k])
+
+    for k in BOOL_PROPS.get(label, ()):
+        if k in out and out[k] is not None:
+            out[k] = _coerce_bool(k, out[k])
+
+    if label == "receptionPassage":
+        for k, allowed_values in RECEPTION_PASSAGE_ENUMS.items():
+            value = out.get(k)
+            if value is not None and value != "" and value not in allowed_values:
+                raise ValueError(
+                    f"Invalid {k}: {value!r}. Must be one of: {', '.join(sorted(allowed_values))}"
+                )
 
     return out

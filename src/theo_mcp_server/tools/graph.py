@@ -19,6 +19,7 @@ from ..gremlin_helpers import (
     get_vertices_by_captions,
     reverse_backward_relationship_keys,
     read_vertex_with_edges,
+    read_reception_passage_with_work,
     delete_vertex_by_id,
     get_unique_vertex_by_caption,
     get_unique_vertex_id_by_caption,
@@ -709,6 +710,222 @@ def register_graph_tools(mcp: FastMCP) -> None:
             g = get_g(ctx)
             id = get_unique_vertex_id_by_caption(g, caption, "scholarlyWork")
             return delete_vertex_by_id(g, id)
+        except Exception:
+            raise ToolError(traceback.format_exc())
+
+    @mcp.tool()
+    def create_reception_work(
+        ctx: Context[ServerSession, AppContext],
+        caption: str,
+        properties: dict[str, Any] | None = None,
+        relationships: dict[str, list[str]] | None = None,
+    ) -> dict[str, Any]:
+        """
+            Create a receptionWork vertex: a pre-critical work that receives Scripture
+            (patristic, rabbinic, medieval — an author read as a witness of reception,
+            not as modern scholarship, which is `scholarlyWork`).
+
+            Optional `properties`:
+            - title, titleLatin, abbreviation — name as given, Latin name, sigla (e.g. IO.COM)
+            - language — grc, la, syc, cop (several separated by "; ")
+            - corpusPath — path of the work's file from the root of the normalized corpus,
+              e.g. "tlg2042_ORIGENES/tlg2042.005_.../tlg2042.005_....xml". A filled
+              corpusPath means the link to the text is established.
+            - ctsUrn — work-level CTS URN, e.g. "urn:cts:greekLit:tlg2042.tlg005".
+              Read it from the `<idno type="CTS-URN">` of that file, do not guess it.
+            - tlgAuthorId — TLG author number, padded, e.g. "tlg2042" (temporary field:
+              raw material for matching the work to the corpus)
+            - clavis — external identifier, e.g. "CPG5208"
+            - dateNotBefore, dateNotAfter — years, as integers
+            - fragmentary — true if the work survives only in fragments
+            - source, sourceId, sourceUrl — provenance, e.g. "biblindex" / "8298" / the API iri
+            - note
+
+            The following relationships can be specified in the `relationships` parameter:
+            - contains — captions of existing receptionPassages
+            - isContainedIn
+            - refersTo / isReferredBy
+
+            To link the work to its author (`writtenBy` to a person) use
+            `create_relationship`: that edge label is not accepted here.
+        """
+        try:
+            edges_in = filter_backward_relationships(relationships or {})
+            edges_in = reverse_backward_relationship_keys(edges_in)
+            edges_out = filter_direct_relationships(relationships or {})
+            g = get_g(ctx)
+            props = {**(properties or {}), "caption": caption}
+            return create_vertex_and_connect_by_captions(g, "receptionWork", props, edges_out, edges_in)
+        except Exception:
+            raise ToolError(traceback.format_exc())
+
+    @mcp.tool()
+    def get_reception_work_by_caption(
+        ctx: Context[ServerSession, AppContext],
+        caption: str
+    ) -> dict[str, Any]:
+        """Get a reception work by caption, with all its relationships."""
+        try:
+            g = get_g(ctx)
+            id = get_unique_vertex_id_by_caption(g, caption, "receptionWork")
+            return read_vertex_with_edges(g, id)
+        except Exception:
+            raise ToolError(traceback.format_exc())
+
+    @mcp.tool()
+    def update_reception_work(
+        ctx: Context[ServerSession, AppContext],
+        caption: str,
+        properties: dict[str, Any],
+    ) -> dict[str, Any]:
+        """
+        Update a reception work, found by caption.
+
+        Only the properties that are passed are changed; the ones left out keep their
+        current values. See `create_reception_work` for the list of properties.
+        Use `change_caption` to rename a reception work.
+        """
+        try:
+            g = get_g(ctx)
+            return update_vertex_properties_by_caption(g, "receptionWork", caption, properties)
+        except Exception:
+            raise ToolError(traceback.format_exc())
+
+    @mcp.tool()
+    def delete_reception_work_by_caption(
+        ctx: Context[ServerSession, AppContext],
+        caption: str
+    ) -> dict[str, Any]:
+        """Delete a reception work by caption, with all its edges."""
+        try:
+            g = get_g(ctx)
+            id = get_unique_vertex_id_by_caption(g, caption, "receptionWork")
+            return delete_vertex_by_id(g, id)
+        except Exception:
+            raise ToolError(traceback.format_exc())
+
+    @mcp.tool()
+    def create_reception_passage(
+        ctx: Context[ServerSession, AppContext],
+        caption: str,
+        properties: dict[str, Any] | None = None,
+        relationships: dict[str, list[str]] | None = None,
+    ) -> dict[str, Any]:
+        """
+            Create a receptionPassage vertex: a passage of a receptionWork that quotes
+            Scripture or alludes to it.
+
+            Optional `properties` — the locus as the source prints it:
+            - edition, editionName — sigla and name of the edition, e.g. "SC130"
+            - locusStart, locusEnd — logical path within the work, dotted: "1.4", "OS.1.12"
+            - pageStart, pageEnd, lineStart, lineEnd — integers
+            - subpageStart, subpageEnd — column within the page, e.g. "A" for PL col. 312A
+            - citation — the source's own composite label, kept verbatim
+
+            Pointer into the normalized corpus:
+            - ctsUrn — full URN with the passage, e.g.
+              "urn:cts:greekLit:tlg2042.tlg005:1.4.25-1.4.26"
+            - ctsUrnStatus — exact, approximate (resolved to a chapter or section only),
+              or unresolved
+
+            The biblical reference as the source states it:
+            - reference — e.g. "Jn 8:21"
+            - referenceSystem — versification the reference is keyed to: Vg, NTG, JB, RST
+            - referenceType — quotation, allusion, lemma, paraphrase
+            - certainty — certain, uncertain
+            - verificationStatus — checked, unchecked, error
+            - sourceTags — the source's own vocabulary verbatim, separated by "; "
+
+            Text:
+            - textOriginal, textLanguage, textNormalized (accent-folded, for corpus search)
+            - textEn, textRu, textDe — translations
+
+            Provenance and notes:
+            - attributedTo — the earlier author this passage is reported to quote
+            - source, sourceId, sourceKey — e.g. "biblindex" / "1608701" / "biblindex:1608701".
+              sourceKey is the identity used for re-import and deduplication.
+            - note
+
+            The following relationships can be specified in the `relationships` parameter:
+            - refersTo — captions of existing verses or verseGroups
+            - isContainedIn — caption of the containing receptionWork
+            - isReferredBy, contains
+
+            For `isParallelTo` (a passage parallel to another passage) use
+            `create_relationship`: that edge label is not accepted here.
+        """
+        try:
+            edges_in = filter_backward_relationships(relationships or {})
+            edges_in = reverse_backward_relationship_keys(edges_in)
+            edges_out = filter_direct_relationships(relationships or {})
+            g = get_g(ctx)
+            props = {**(properties or {}), "caption": caption}
+            return create_vertex_and_connect_by_captions(g, "receptionPassage", props, edges_out, edges_in)
+        except Exception:
+            raise ToolError(traceback.format_exc())
+
+    @mcp.tool()
+    def get_reception_passage_by_caption(
+        ctx: Context[ServerSession, AppContext],
+        caption: str
+    ) -> dict[str, Any]:
+        """
+        Get a reception passage by caption, with all its relationships.
+
+        The response also carries a `receptionWork` summary — caption, tlgAuthorId,
+        corpusPath and ctsUrn of the containing work — which is what locates the
+        passage in the normalized corpus. It is null when the passage is not
+        contained in any reception work.
+        """
+        try:
+            g = get_g(ctx)
+            id = get_unique_vertex_id_by_caption(g, caption, "receptionPassage")
+            return read_reception_passage_with_work(g, id)
+        except Exception:
+            raise ToolError(traceback.format_exc())
+
+    @mcp.tool()
+    def update_reception_passage(
+        ctx: Context[ServerSession, AppContext],
+        caption: str,
+        properties: dict[str, Any],
+    ) -> dict[str, Any]:
+        """
+        Update a reception passage, found by caption.
+
+        Only the properties that are passed are changed; the ones left out keep their
+        current values. See `create_reception_passage` for the list of properties.
+        Use `change_caption` to rename a reception passage.
+        """
+        try:
+            g = get_g(ctx)
+            return update_vertex_properties_by_caption(g, "receptionPassage", caption, properties)
+        except Exception:
+            raise ToolError(traceback.format_exc())
+
+    @mcp.tool()
+    def delete_reception_passage_by_caption(
+        ctx: Context[ServerSession, AppContext],
+        caption: str
+    ) -> dict[str, Any]:
+        """Delete a reception passage by caption, with all its edges."""
+        try:
+            g = get_g(ctx)
+            id = get_unique_vertex_id_by_caption(g, caption, "receptionPassage")
+            return delete_vertex_by_id(g, id)
+        except Exception:
+            raise ToolError(traceback.format_exc())
+
+    @mcp.tool()
+    def search_reception_works_and_passages(
+        ctx: Context[ServerSession, AppContext],
+        searchText: str,
+        limit: int = 100
+    ) -> list[dict[str, Any]]:
+        """Search for reception works and reception passages by caption substring."""
+        try:
+            g = get_g(ctx)
+            return search_vertices(g, ["receptionWork", "receptionPassage"], searchText, limit)
         except Exception:
             raise ToolError(traceback.format_exc())
 

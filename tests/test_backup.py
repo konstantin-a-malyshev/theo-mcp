@@ -315,7 +315,16 @@ def test_excluded_vertex_labels_default_to_verse(monkeypatch):
     )
     types = resolve_types(None)
     assert "verse" not in types
-    assert {"notion", "notionGroup", "quotation", "scholarlyWork", "person", "verseGroup"} == set(types)
+    assert {
+        "notion",
+        "notionGroup",
+        "quotation",
+        "scholarlyWork",
+        "receptionWork",
+        "receptionPassage",
+        "person",
+        "verseGroup",
+    } == set(types)
 
 
 def test_excluded_vertex_labels_read_from_config(monkeypatch):
