@@ -40,14 +40,23 @@ from typing import Any, Iterable, Iterator
 from gremlin_python.process.graph_traversal import GraphTraversalSource, __
 from gremlin_python.process.traversal import P, T
 
-from theo_mcp_server.gremlin_client import get_g_for_tests
+from theo_mcp_server.gremlin_client import _is_closed_connection_error, get_g_for_tests
 from theo_mcp_server.validation import validate_and_fix_properties
 
 SOURCE = "biblindex"
 SOURCE_BASE_URL = "https://www.biblindex.org"
 DEFAULT_SOURCE_DIR = "../biblindex-importer/output"
-VERTEX_BATCH_SIZE = 100
-PASSAGE_BATCH_SIZE = 50
+
+# Batches are sized by *payload*, not by item count. Gremlin Server's default
+# `maxContentLength` is 64 KB and it answers a bigger request by closing the
+# connection, with no error that says why. Works run ~615 B each and passages
+# ~730 B, so a hundred of either would sit right at the limit: 100 works measured
+# 60 KB median and 100 KB worst case. The budget keeps a wide margin, because the
+# estimate below is deliberately rough.
+REQUEST_BUDGET_BYTES = 24_000
+MAX_ITEMS_PER_REQUEST = 50
+EDGE_STEP_WEIGHT = 120  # a V().as_().addE().from_().to() chain per edge
+EDGE_BATCH_SIZE = 50
 
 # `quotation_types` mixes several axes and 60% of its mass is undocumented
 # typographic sigla (`<`, `>`, `]`, `/`). Only the labels whose meaning is plain
@@ -340,17 +349,91 @@ def chunks(items: list[Any], size: int) -> Iterator[list[Any]]:
         yield items[start : start + size]
 
 
+def estimate_props(props: dict[str, Any]) -> int:
+    """Rough bytecode weight of one `property(key, value)` chain."""
+    return sum(len(key) + len(str(value)) + 24 for key, value in props.items())
+
+
+def size_chunks(
+    items: list[Any], weight: Any, budget: int = REQUEST_BUDGET_BYTES
+) -> Iterator[list[Any]]:
+    """Split into requests that stay under the payload budget.
+
+    An item heavier than the whole budget still goes out on its own — one
+    oversized request is better than silently dropping data.
+    """
+    batch: list[Any] = []
+    total = 0
+    for item in items:
+        item_weight = weight(item)
+        if batch and (total + item_weight > budget or len(batch) >= MAX_ITEMS_PER_REQUEST):
+            yield batch
+            batch, total = [], 0
+        batch.append(item)
+        total += item_weight
+    if batch:
+        yield batch
+
+
 def create_vertices(
-    g: GraphTraversalSource, label: str, rows: list[dict[str, Any]]
+    g: GraphTraversalSource, label: str, batch: list[dict[str, Any]]
 ) -> None:
-    """Create vertices of one label in batches, properties already validated."""
-    for batch in chunks(rows, VERTEX_BATCH_SIZE):
-        t = g
-        for props in batch:
-            t = t.add_v(label).property("type", label)
-            for key, value in props.items():
-                t = t.property(key, value)
-        t.iterate()
+    """Create one request worth of vertices; properties are already validated."""
+    t = g
+    for props in batch:
+        t = t.add_v(label).property("type", label)
+        for key, value in props.items():
+            t = t.property(key, value)
+    t.iterate()
+
+
+class Writer:
+    """Holds the connection and keeps writing across a dropped socket.
+
+    A retry cannot simply repeat the request: the traversal may well have been
+    committed before the socket died. So after reconnecting it asks the graph
+    which keys of that batch are already there and sends only the rest. Without
+    this, one network hiccup in a ten-minute run either loses a batch or
+    duplicates it, and both are invisible until much later.
+    """
+
+    def __init__(self, g: GraphTraversalSource) -> None:
+        self.g = g
+        self.reconnects = 0
+
+    async def _reconnect(self) -> None:
+        self.reconnects += 1
+        print("  connection dropped — reconnecting and reconciling…")
+        self.g = await get_g_for_tests()
+
+    async def write(
+        self,
+        create: Any,
+        batch: list[Any],
+        label: str,
+        key_property: str,
+        key_of: Any,
+    ) -> int:
+        """Send one batch, reconciling by key if the connection drops."""
+        try:
+            create(self.g, batch)
+            return len(batch)
+        except Exception as exc:
+            if not _is_closed_connection_error(exc):
+                raise
+            await self._reconnect()
+            keys = [key_of(item) for item in batch]
+            landed = set(
+                self.g.V().has("type", label)
+                .has(key_property, P.within(keys))
+                .values(key_property)
+                .toList()
+            )
+            rest = [item for item in batch if key_of(item) not in landed]
+            if rest:
+                create(self.g, rest)
+            # Either way the whole batch is in the graph now.
+            return len(batch)
 
 
 def create_passages_with_edges(
@@ -418,19 +501,13 @@ def missing_member_pairs(
     return pairs
 
 
-def link_group_members(
-    g: GraphTraversalSource, pairs: list[tuple[int, int]]
-) -> int:
-    """Create `verseGroup -contains-> verse` edges in batches."""
-    created = 0
-    for batch in chunks(pairs, PASSAGE_BATCH_SIZE):
-        t = g
-        for i, (group_id, verse_id) in enumerate(batch):
-            t = t.V(group_id).as_(f"g{i}")
-            t = t.V(verse_id).as_(f"v{i}").add_e("contains").from_(f"g{i}").to(f"v{i}")
-        t.iterate()
-        created += len(batch)
-    return created
+def link_group_members(g: GraphTraversalSource, pairs: list[tuple[int, int]]) -> None:
+    """Create one request worth of `verseGroup -contains-> verse` edges."""
+    t = g
+    for i, (group_id, verse_id) in enumerate(pairs):
+        t = t.V(group_id).as_(f"g{i}")
+        t = t.V(verse_id).as_(f"v{i}").add_e("contains").from_(f"g{i}").to(f"v{i}")
+    t.iterate()
 
 
 # --- the import --------------------------------------------------------------
@@ -590,64 +667,100 @@ async def main() -> int:
         "quotations_selected": len(rows),
         "skipped_existing": skipped_existing,
         "unlinked": dict(unresolved),
+        "works_created": 0,
+        "verse_groups_created": 0,
+        "group_member_edges": 0,
+        "passages_created": 0,
     }
+    writer = Writer(g)
 
-    if works_to_create:
-        print(f"\ncreating {len(works_to_create)} works…")
-        create_vertices(g, "receptionWork", works_to_create)
-        existing_work_ids = load_keyed_ids(g, "receptionWork", "sourceKey")
-    report["works_created"] = len(works_to_create)
-
-    if groups_needed:
-        print(f"creating {len(groups_needed)} verseGroups…")
-        create_vertices(
-            g,
-            "verseGroup",
-            [validate_and_fix_properties("verseGroup", {"caption": caption})
-             for caption in sorted(groups_needed)],
-        )
-        group_ids = load_keyed_ids(g, "verseGroup", "caption")
-    report["verse_groups_created"] = len(groups_needed)
-
-    pairs = missing_member_pairs(
-        groups_used, group_ids, existing_members, verse_ids, verses_in_order
-    )
-    if pairs:
-        print(f"linking {len(pairs)} verseGroup -contains-> verse edges…")
-        report["group_member_edges"] = link_group_members(g, pairs)
-
-    batch: list[dict[str, Any]] = []
-    for item in planned:
-        target = item["target"]
-        target_id = None
-        if target:
-            target_id = (verse_ids if target[0] == "verse" else group_ids).get(target[1])
-        batch.append(
-            {
-                "props": item["props"],
-                "work_id": existing_work_ids[f"{SOURCE}:{item['row']['work_id']}"],
-                "target_id": target_id,
-            }
-        )
-
-    print(f"creating {len(batch)} passages with their edges…")
-    done = 0
     try:
-        for part in chunks(batch, PASSAGE_BATCH_SIZE):
-            create_passages_with_edges(g, part)
-            done += len(part)
-            print(f"  {done}/{len(batch)}", end="\r", flush=True)
-    finally:
+        if works_to_create:
+            print(f"\ncreating {len(works_to_create)} works…")
+            for batch in size_chunks(works_to_create, estimate_props):
+                report["works_created"] += await writer.write(
+                    lambda g, b: create_vertices(g, "receptionWork", b),
+                    batch, "receptionWork", "sourceKey", lambda p: p["sourceKey"],
+                )
+                print(f"  {report['works_created']}/{len(works_to_create)}", end="\r", flush=True)
+            print()
+            existing_work_ids = load_keyed_ids(writer.g, "receptionWork", "sourceKey")
+
+        if groups_needed:
+            print(f"creating {len(groups_needed)} verseGroups…")
+            group_props = [
+                validate_and_fix_properties("verseGroup", {"caption": caption})
+                for caption in sorted(groups_needed)
+            ]
+            for batch in size_chunks(group_props, estimate_props):
+                report["verse_groups_created"] += await writer.write(
+                    lambda g, b: create_vertices(g, "verseGroup", b),
+                    batch, "verseGroup", "caption", lambda p: p["caption"],
+                )
+            group_ids = load_keyed_ids(writer.g, "verseGroup", "caption")
+
+        # Recomputed from the graph, so a resumed run links exactly what is missing.
+        pairs = missing_member_pairs(
+            groups_used, group_ids, existing_members, verse_ids, verses_in_order
+        )
+        if pairs:
+            print(f"linking {len(pairs)} verseGroup -contains-> verse edges…")
+            for batch in chunks(pairs, EDGE_BATCH_SIZE):
+                try:
+                    link_group_members(writer.g, batch)
+                except Exception as exc:
+                    if not _is_closed_connection_error(exc):
+                        raise
+                    await writer._reconnect()
+                    # Membership is read back, so re-sending what landed is a no-op.
+                    remaining = missing_member_pairs(
+                        groups_used, group_ids, load_group_members(writer.g),
+                        verse_ids, verses_in_order,
+                    )
+                    for rest in chunks(remaining, EDGE_BATCH_SIZE):
+                        link_group_members(writer.g, rest)
+                    report["group_member_edges"] = len(pairs)
+                    break
+                report["group_member_edges"] += len(batch)
+
+        to_write: list[dict[str, Any]] = []
+        for item in planned:
+            target = item["target"]
+            target_id = None
+            if target:
+                target_id = (verse_ids if target[0] == "verse" else group_ids).get(target[1])
+            to_write.append(
+                {
+                    "props": item["props"],
+                    "work_id": existing_work_ids[f"{SOURCE}:{item['row']['work_id']}"],
+                    "target_id": target_id,
+                }
+            )
+
+        print(f"creating {len(to_write)} passages with their edges…")
+        for batch in size_chunks(
+            to_write,
+            lambda item: estimate_props(item["props"]) + 2 * EDGE_STEP_WEIGHT,
+        ):
+            report["passages_created"] += await writer.write(
+                create_passages_with_edges,
+                batch, "receptionPassage", "sourceKey",
+                lambda item: item["props"]["sourceKey"],
+            )
+            print(f"  {report['passages_created']}/{len(to_write)}", end="\r", flush=True)
         print()
-        report["passages_created"] = done
+    finally:
         report["finished_at"] = datetime.now().isoformat(timespec="seconds")
+        report["reconnects"] = writer.reconnects
         if args.log:
             with open(args.log, "w", encoding="utf-8") as fh:
                 json.dump(report, fh, ensure_ascii=False, indent=2, sort_keys=True)
             print(f"report written to {args.log}")
 
-    print(f"\nDone. works +{len(works_to_create)}, verseGroups +{len(groups_needed)}, "
-          f"passages +{done}, group member edges +{report.get('group_member_edges', 0)}.")
+    print(f"\nDone. works +{report['works_created']}, "
+          f"verseGroups +{report['verse_groups_created']}, "
+          f"passages +{report['passages_created']}, "
+          f"group member edges +{report['group_member_edges']}.")
     return 0
 
 
