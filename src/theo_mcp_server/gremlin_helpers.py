@@ -492,12 +492,36 @@ def _drop_edge_labels(t: Any, excluded_edge_labels: list[str]) -> Any:
     return t.not_(__.hasLabel(*excluded_edge_labels))
 
 
+def _drop_edge_triples(
+    t: Any, excluded_edge_triples: list[tuple[str, str, str]]
+) -> Any:
+    """Filter out whole `(source type, label, target type)` shapes *server-side*.
+
+    Same reason as `_drop_edge_labels`: these shapes are the ones an import of an
+    excluded vertex type rebuilds by itself, and they are dominated by the
+    reception passages — one `contains` and one `refersTo` each, tens of thousands
+    of both — which must not cross the wire only to be thrown away.
+
+    The filter matches on the *shape*, not on the label alone, because `contains`
+    and `refersTo` also carry the notion structure and the hand-made links from
+    notions to verses, which no import can rebuild.
+    """
+    for source_type, label, target_type in excluded_edge_triples:
+        t = t.not_(
+            __.hasLabel(label)
+            .where(__.outV().has("type", source_type))
+            .where(__.inV().has("type", target_type))
+        )
+    return t
+
+
 def export_edges_for_types(
     g: GraphTraversalSource,
     types: list[str],
     excluded_edge_labels: list[str] | None = None,
+    excluded_edge_triples: list[tuple[str, str, str]] | None = None,
 ) -> list[dict[str, Any]]:
-    """Read every edge of the graph except the excluded labels.
+    """Read every edge of the graph except the excluded labels and shapes.
 
     Three disjoint passes, all driven by the indexed `type` property:
 
@@ -510,15 +534,19 @@ def export_edges_for_types(
     """
     types = list(types)
     excluded = list(excluded_edge_labels or [])
+    triples = list(excluded_edge_triples or [])
     other_types = sorted(set(LABELS_CANON.values()) - set(types))
 
+    def _filtered(t: Any) -> Any:
+        return _drop_edge_triples(_drop_edge_labels(t, excluded), triples)
+
     outgoing = _by_edge_export(
-        _drop_edge_labels(g.V().has("type", P.within(types)).outE(), excluded)
+        _filtered(g.V().has("type", P.within(types)).outE())
         .project(*EDGE_EXPORT_KEYS)
     ).toList()
 
     incoming = _by_edge_export(
-        _drop_edge_labels(g.V().has("type", P.within(types)).inE(), excluded)
+        _filtered(g.V().has("type", P.within(types)).inE())
         .where(__.not_(__.outV().has("type", P.within(types))))
         .project(*EDGE_EXPORT_KEYS)
     ).toList()
@@ -526,9 +554,7 @@ def export_edges_for_types(
     between_others: list[Any] = []
     if other_types:
         between_others = _by_edge_export(
-            _drop_edge_labels(
-                g.V().has("type", P.within(other_types)).outE(), excluded
-            )
+            _filtered(g.V().has("type", P.within(other_types)).outE())
             .where(__.inV().has("type", P.within(other_types)))
             .project(*EDGE_EXPORT_KEYS)
         ).toList()

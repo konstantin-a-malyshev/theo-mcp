@@ -177,9 +177,24 @@ separate `translation` vertex becomes the honest model.
 
 - The export is **John only**: all 72 466 rows have `start_book = Jn`, across 2401
   works and 437 authors.
-- 72 466 passages is twice everything non-verse now in the graph. Consider adding
-  `receptionPassage` to `BACKUP_EXCLUDED_VERTEX_LABELS`, or the backup repository
-  gets a file of tens of megabytes rewritten in full on every run.
+- 72 466 passages is twice everything non-verse now in the graph, which is why
+  `receptionPassage` is excluded from the backup by default
+  (`DEFAULT_EXCLUDED_VERTEX_LABELS`), like `verse`: both are re-imported from
+  their own source, and a file of tens of megabytes rewritten in full on every
+  run would make the diff useless. Note that the *edges* of excluded vertices are
+  are excluded by *shape* rather than by label, through
+  `DEFAULT_EXCLUDED_EDGE_TRIPLES_BY_TYPE`: `receptionWork -contains->
+  receptionPassage` and `receptionPassage -refersTo-> verse|verseGroup`, around
+  145 000 records for a full import, which the import itself re-creates.
+  The filter runs inside the traversal, so those rows never cross the wire.
+
+  It is a shape and not a label on purpose. `contains` and `refersTo` also carry
+  the notion tree and the hand-made links from notions and quotations to verses —
+  1711 such edges today — and "any edge touching an excluded vertex type" would
+  silently drop all of them, including `verse -isParallelTo-> verse`, which
+  nothing but the backup can reconstruct. A shape is dropped only while the
+  vertex type it belongs to is excluded: export the passages and their edges come
+  back with them.
 - Build the work-to-corpus table first: without `corpusPath` and `ctsUrn` the
   passages cannot be located, however many fields they carry. Match `titleLatin`
   against the folder names under the author's `tlgAuthorId`, then review by hand.

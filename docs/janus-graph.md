@@ -24,14 +24,12 @@ pk = m.makePropertyKey('type').dataType(String.class).make()
 // pk = m.getPropertyKey('caption') - for existing properties
 m.buildIndex('byCaption', Vertex.class).addKey(pk).buildCompositeIndex()
 m.commit()
-ManagementSystem.awaitGraphIndexStatus(graph, 'byCaption').call() 
+ManagementSystem.awaitGraphIndexStatus(graph, 'byCaption').call()
 
 # Reindex new index
 m = graph.openManagement()
 m.updateIndex(m.getGraphIndex("byCaption"), SchemaAction.REINDEX).get()
-m.commit() 
-
-
+m.commit()
 
 i  = m.getGraphIndex('byVerseImportIndex')
 pk = m.getPropertyKey('importIndex')
@@ -40,4 +38,4 @@ i.getIndexStatus(pk)
 m.updateIndex(i, SchemaAction.DISABLE_INDEX)
 m.printIndexes()
 
-ManagementSystem.awaitGraphIndexStatus(graph, 'byImportIndexComposite').call()  
+ManagementSystem.awaitGraphIndexStatus(graph, 'byImportIndexComposite').call()

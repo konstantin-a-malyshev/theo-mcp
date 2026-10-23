@@ -6,7 +6,8 @@ from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
 from theo_mcp_server.gremlin_client import get_g_for_tests
-from theo_mcp_server.gremlin_helpers import build_notion_groups_tree, change_caption, create_vertex_and_connect_by_captions, delete_vertex_by_id, get_subgraph_by_captions, get_vertices_by_captions, read_vertex_with_edges, search_vertices, is_vertex_existing_by_caption
+from theo_mcp_server.gremlin_helpers import build_notion_groups_tree, change_caption, create_vertex_and_connect_by_captions, delete_vertex_by_id, get_subgraph_by_captions, get_vertices_by_captions, read_vertex_with_edges, search_vertices, is_vertex_existing_by_caption, export_edges_for_types
+from theo_mcp_server.backup import resolve_excluded_edge_labels, resolve_excluded_edge_triples, resolve_types
 
 server_params = StdioServerParameters(command="theo-mcp")
 
@@ -155,3 +156,54 @@ async def test_change_caption(g):
 
     delete_result = delete_vertex_by_id(g, vertex_id)
     assert delete_result["deleted"] is True
+
+@pytest.mark.anyio
+async def test_export_edges_skips_excluded_edge_triples(g):
+    """The reception bulk edges are filtered server-side, the hand-made ones are not."""
+    prefix = "test_export_edges_triples"
+    timestamp = datetime.datetime.now().strftime("%d.%m.%Y %H:%M:%S")
+    work_caption = f"{prefix}_WORK_{timestamp}"
+    passage_caption = f"{prefix}_PASSAGE_{timestamp}"
+    verse_caption = "Jn 8:21"
+
+    work = create_vertex_and_connect_by_captions(
+        g, "receptionWork", {"caption": work_caption}, None, None
+    )
+    passage = create_vertex_and_connect_by_captions(
+        g,
+        "receptionPassage",
+        {"caption": passage_caption, "reference": verse_caption},
+        {"refersTo": [verse_caption]},
+        {"contains": [work_caption]},
+    )
+
+    types = resolve_types(None)
+    excluded_labels = resolve_excluded_edge_labels(None)
+    triples = resolve_excluded_edge_triples(types)
+
+    try:
+        kept = export_edges_for_types(g, types, excluded_labels, triples)
+
+        # The two shapes an import rebuilds are gone …
+        assert not any(row["source_caption"] == work_caption for row in kept)
+        assert not any(row["source_caption"] == passage_caption for row in kept)
+        # … while the hand-made links to verses survive, …
+        assert any(
+            row["source_type"] == "notion" and row["target_type"] == "verse"
+            for row in kept
+        )
+        # … and so does verse -isParallelTo-> verse, which nothing can rebuild.
+        assert any(
+            row["label"] == "isParallelTo"
+            and row["source_type"] == "verse"
+            and row["target_type"] == "verse"
+            for row in kept
+        )
+
+        # Control: without the triples both edges are exported.
+        everything = export_edges_for_types(g, types, excluded_labels, [])
+        assert any(row["source_caption"] == work_caption for row in everything)
+        assert any(row["source_caption"] == passage_caption for row in everything)
+    finally:
+        delete_vertex_by_id(g, passage["created"]["internal_id"])
+        delete_vertex_by_id(g, work["created"]["internal_id"])

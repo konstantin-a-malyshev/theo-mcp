@@ -17,6 +17,7 @@ from theo_mcp_server.backup import (
     find_duplicate_captions,
     resolve_backup_dir,
     resolve_excluded_edge_labels,
+    resolve_excluded_edge_triples,
     resolve_types,
     sort_edge_records,
     sort_vertex_records,
@@ -307,7 +308,7 @@ def _config_with(**attrs):
     return lambda: type("C", (), attrs)()
 
 
-def test_excluded_vertex_labels_default_to_verse(monkeypatch):
+def test_excluded_vertex_labels_default_to_verse_and_reception_passage(monkeypatch):
     monkeypatch.setattr(
         backup_module,
         "get_config",
@@ -315,13 +316,13 @@ def test_excluded_vertex_labels_default_to_verse(monkeypatch):
     )
     types = resolve_types(None)
     assert "verse" not in types
+    assert "receptionPassage" not in types
     assert {
         "notion",
         "notionGroup",
         "quotation",
         "scholarlyWork",
         "receptionWork",
-        "receptionPassage",
         "person",
         "verseGroup",
     } == set(types)
@@ -374,6 +375,40 @@ def test_excluded_edge_labels_read_from_config(monkeypatch):
 
 def test_empty_excluded_edge_labels_exports_every_label():
     assert resolve_excluded_edge_labels([]) == []
+
+
+def test_excluded_edge_triples_apply_while_the_type_is_excluded():
+    types = resolve_types(None)
+    assert "receptionPassage" not in types
+    assert resolve_excluded_edge_triples(types) == [
+        ("receptionWork", "contains", "receptionPassage"),
+        ("receptionPassage", "refersTo", "verse"),
+        ("receptionPassage", "refersTo", "verseGroup"),
+    ]
+
+
+def test_excluded_edge_triples_drop_out_when_the_type_is_exported():
+    """A backup that holds the passages must hold their links too."""
+    types = resolve_types(["verse"])
+    assert "receptionPassage" in types
+    assert resolve_excluded_edge_triples(types) == []
+
+
+def test_excluded_edge_signatures_are_reported_in_the_statistics():
+    collected = _collected(
+        {"notion": [_vertex(1, "notion", "a")]},
+        [_edge("refersTo", 1, "notion", 99, "verse")],
+        {"notion"},
+    )
+    statistics = build_statistics(
+        collected,
+        ["notion"],
+        ["next"],
+        [("receptionPassage", "refersTo", "verse")],
+    )
+    assert statistics["edges"]["excluded_signatures"] == [
+        "receptionPassage -refersTo-> verse"
+    ]
 
 
 def test_excluded_edge_labels_reject_unknown_label():

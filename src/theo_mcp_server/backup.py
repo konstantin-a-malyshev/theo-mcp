@@ -21,15 +21,35 @@ from .validation import normalize_edge_label, normalize_label
 # Bump when the on-disk layout changes in a way a restore script must notice.
 BACKUP_FORMAT = "theo-graph-backup/1"
 
-# Vertex labels never included by default: verses are re-imported from the Bible
-# source, not restored from the backup.
-DEFAULT_EXCLUDED_VERTEX_LABELS = ("verse",)
+# Vertex labels never included by default. Verses are re-imported from the Bible
+# source, not restored from the backup; reception passages are re-imported from
+# their own source (biblIndex and the like) and run to tens of thousands of
+# vertices, which would rewrite a file of tens of megabytes on every run.
+DEFAULT_EXCLUDED_VERTEX_LABELS = ("verse", "receptionPassage")
 
 # Edge labels never included by default. `next` is the verse chain — one edge per
 # verse, rebuilt by the verse import. Every other edge between two excluded
 # vertices (notably `verse -isParallelTo-> verse`) *is* backed up, because
 # nothing else can reconstruct it.
 DEFAULT_EXCLUDED_EDGE_LABELS = ("next",)
+
+# Edge *shapes* left out while a vertex type is excluded, keyed by that type and
+# written as (source type, edge label, target type). These are the edges the
+# type's own import re-creates: one `contains` and one `refersTo` per reception
+# passage, some 145 000 records for a full biblIndex import — twice the passages
+# themselves.
+#
+# Deliberately shapes and not labels: `contains` and `refersTo` also hold the
+# notion tree and the hand-made links from notions and quotations to verses
+# (~1550 edges today), which no import can rebuild. And deliberately not "any
+# edge touching an excluded type", which would drop exactly those 1550.
+DEFAULT_EXCLUDED_EDGE_TRIPLES_BY_TYPE: dict[str, tuple[tuple[str, str, str], ...]] = {
+    "receptionPassage": (
+        ("receptionWork", "contains", "receptionPassage"),
+        ("receptionPassage", "refersTo", "verse"),
+        ("receptionPassage", "refersTo", "verseGroup"),
+    ),
+}
 
 VERTICES_SUBDIR = "vertices"
 EDGES_FILENAME = "edges.json"
@@ -115,6 +135,23 @@ def resolve_excluded_edge_labels(excluded: list[str] | None = None) -> list[str]
         excluded = [part.strip() for part in configured.split(",") if part.strip()]
 
     return sorted({normalize_edge_label(label) for label in excluded})
+
+
+def resolve_excluded_edge_triples(types: list[str]) -> list[tuple[str, str, str]]:
+    """Resolve the edge shapes to leave out, from the types being exported.
+
+    A shape is dropped only while the vertex type it belongs to is excluded. If
+    `receptionPassage` is being exported after all (someone set
+    `BACKUP_EXCLUDED_VERTEX_LABELS` by hand), its edges are exported with it — a
+    backup holding vertices whose links are missing is worse than a big one.
+    """
+    exported = set(types)
+    return [
+        triple
+        for type, triples in sorted(DEFAULT_EXCLUDED_EDGE_TRIPLES_BY_TYPE.items())
+        if type not in exported
+        for triple in triples
+    ]
 
 
 # --- serialization -----------------------------------------------------------
@@ -222,6 +259,7 @@ def collect_backup(
     g: GraphTraversalSource,
     types: list[str],
     excluded_edge_labels: list[str],
+    excluded_edge_triples: list[tuple[str, str, str]] | None = None,
 ) -> dict[str, Any]:
     """Read the whole backup into memory.
 
@@ -248,7 +286,9 @@ def collect_backup(
 
     exported_types = set(types)
     try:
-        edge_rows = export_edges_for_types(g, types, excluded_edge_labels)
+        edge_rows = export_edges_for_types(
+            g, types, excluded_edge_labels, excluded_edge_triples
+        )
     except Exception as exc:
         raise BackupError(
             f"Gremlin read failed for edges: {exc}",
@@ -286,6 +326,7 @@ def build_statistics(
     collected: dict[str, Any],
     types: list[str],
     excluded_edge_labels: list[str],
+    excluded_edge_triples: list[tuple[str, str, str]] | None = None,
 ) -> dict[str, Any]:
     vertices_by_type = collected["vertices_by_type"]
     edges = collected["edges"]
@@ -320,6 +361,10 @@ def build_statistics(
         "edges": {
             "total": len(edges),
             "excluded_labels": list(excluded_edge_labels),
+            "excluded_signatures": [
+                f"{source_type} -{label}-> {target_type}"
+                for source_type, label, target_type in (excluded_edge_triples or ())
+            ],
             "by_label": dict(sorted(by_label.items())),
             "by_signature": dict(sorted(by_signature.items())),
             "external_endpoints": dict(sorted(external_endpoints.items())),
@@ -462,10 +507,11 @@ def create_backup(
     backup_dir = resolve_backup_dir(directory)
     types = resolve_types(excluded_vertex_labels)
     excluded = resolve_excluded_edge_labels(excluded_edge_labels)
+    excluded_triples = resolve_excluded_edge_triples(types)
 
     try:
-        collected = collect_backup(g, types, excluded)
-        statistics = build_statistics(collected, types, excluded)
+        collected = collect_backup(g, types, excluded, excluded_triples)
+        statistics = build_statistics(collected, types, excluded, excluded_triples)
         exported_at = datetime.datetime.now().astimezone().isoformat(timespec="seconds")
         written = write_backup(backup_dir, collected, types, statistics, exported_at)
     except BackupError as exc:

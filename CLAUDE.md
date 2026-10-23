@@ -36,7 +36,7 @@ Read from environment (via `python-dotenv`, so a `.env` at repo root is honored)
 - `GREMLIN_USERNAME`, `GREMLIN_PASSWORD`
 - `MCP_TRANSPORT` — `stdio` (default) or `streamable-http`
 - `BACKUP_DIR` — absolute path to an existing directory for the graph backup (no default)
-- `BACKUP_EXCLUDED_VERTEX_LABELS` — comma-separated vertex labels to leave out (empty = `verse`)
+- `BACKUP_EXCLUDED_VERTEX_LABELS` — comma-separated vertex labels to leave out (empty = `verse, receptionPassage`)
 - `BACKUP_EXCLUDED_EDGE_LABELS` — comma-separated edge labels to leave out (empty = `next`)
 
 ## Architecture
@@ -57,7 +57,7 @@ Tool implementations live in [src/theo_mcp_server/tools/](src/theo_mcp_server/to
 - `diagram.py` — Graphviz-based SVG diagram generation (`create_diagram_by_captions`, `change_caption`). Depends on the `graphviz` Python package and the system `dot` binary being on PATH.
 - `backup.py` — `create_graph_backup`, the JSON export of the whole graph. Serialization and file writing live in [backup.py](src/theo_mcp_server/backup.py) (module, not the tool file); the Gremlin reads are `export_vertices_by_type` / `export_edges_for_types` in `gremlin_helpers.py`.
 
-`export_edges_for_types` makes **three** passes, not two: outgoing edges of exported vertices, incoming ones from non-exported sources, and edges between two non-exported vertices (`verse -isParallelTo-> verse`). Dropping the third pass silently loses edges that no import can rebuild. Excluded edge labels (`next` by default) must be filtered inside the traversal — `next` is one edge per verse (~37k) and would otherwise cross the wire only to be discarded.
+`export_edges_for_types` makes **three** passes, not two: outgoing edges of exported vertices, incoming ones from non-exported sources, and edges between two non-exported vertices (`verse -isParallelTo-> verse`). Dropping the third pass silently loses edges that no import can rebuild. Excluded edge labels (`next` by default) must be filtered inside the traversal — `next` is one edge per verse (~37k) and would otherwise cross the wire only to be discarded. The same holds for the excluded edge *shapes* (`DEFAULT_EXCLUDED_EDGE_TRIPLES_BY_TYPE`, resolved by `resolve_excluded_edge_triples`): edges an excluded vertex type's own import re-creates, matched as `(source type, label, target type)`. Never widen this to "any edge touching an excluded type" — that would drop the hand-made `notion -refersTo-> verse` links and `verse -isParallelTo-> verse`, which no import can rebuild.
 
 ### Backup determinism
 

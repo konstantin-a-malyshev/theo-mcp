@@ -71,7 +71,7 @@ Environment variables:
 - `OWNCLOUD_REMOTE_DIR` (default: `theo-diagrams`) — remote folder diagrams are uploaded into
 - `OWNCLOUD_VERIFY_SSL` (default: `false`) — verify the ownCloud TLS certificate
 - `BACKUP_DIR` — absolute path to the graph backup directory (see [Graph backup](#graph-backup))
-- `BACKUP_EXCLUDED_VERTEX_LABELS` (default: `verse`) — comma-separated vertex labels to leave out
+- `BACKUP_EXCLUDED_VERTEX_LABELS` (default: `verse, receptionPassage`) — comma-separated vertex labels to leave out
 - `BACKUP_EXCLUDED_EDGE_LABELS` (default: `next`) — comma-separated edge labels to leave out
 
 See `.env.example` for a full template.
@@ -202,7 +202,7 @@ two runs shows exactly what changed in the graph.
 # typo cannot send months of backups into the wrong place.
 BACKUP_DIR=C:\Users\me\private_repos\theo-graph-backup
 # What to leave out. Both are optional; empty means the default shown below.
-BACKUP_EXCLUDED_VERTEX_LABELS=verse
+BACKUP_EXCLUDED_VERTEX_LABELS=verse, receptionPassage
 BACKUP_EXCLUDED_EDGE_LABELS=next
 ```
 
