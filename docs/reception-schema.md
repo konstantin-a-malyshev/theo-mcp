@@ -68,6 +68,7 @@ Hence two rules:
 | `fragmentary` | bool | `fragment` | survives only in fragments, which limits what a locus can mean |
 | `source` | str | `biblindex` | |
 | `sourceId` | str | `id` | |
+| `sourceKey` | str | `biblindex:{id}` | identity for re-import, like a passage's — a caption may be renamed by hand, a source key may not |
 | `sourceUrl` | str | `iri` | |
 | `note` | str | `description` (14%) | |
 

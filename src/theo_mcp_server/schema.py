@@ -49,6 +49,7 @@ RECEPTION_WORK_PROPS: set[str] = {
     "fragmentary",
     "source",
     "sourceId",
+    "sourceKey",
     "sourceUrl",
     "note",
 }
