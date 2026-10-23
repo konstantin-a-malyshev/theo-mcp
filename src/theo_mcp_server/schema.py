@@ -4,7 +4,8 @@ from __future__ import annotations
 LABELS_CANON: dict[str, str] = {
     "notion": "notion",
     "person": "person",
-    "book": "book",
+    "scholarlywork": "scholarlyWork",
+    "scholarlyWork": "scholarlyWork",
     "verse": "verse",
     "quotation": "quotation",
     "notiongroup": "notionGroup",
@@ -27,7 +28,7 @@ ALLOWED_EDGE_LABELS: set[str] = {
 ALLOWED_PROPS: dict[str, set[str]] = {
     "notion": {"caption", "description", "quotation"},
     "person": {"caption"},
-    "book": {"caption"},
+    "scholarlyWork": {"caption"},
     "verse": {"chapter", "RST", "bookShort", "book", "caption", "importIndex", "verse"},
     "quotation": {"caption", "text", "book", "position", "status", "importIndex"},
     "notionGroup": {"caption"},
@@ -37,7 +38,7 @@ ALLOWED_PROPS: dict[str, set[str]] = {
 REQUIRED_PROPS: dict[str, set[str]] = {
     "notion": {"caption"},
     "person": {"caption"},
-    "book": {"caption"},
+    "scholarlyWork": {"caption"},
     "verse": {"caption"},
     "quotation": {"caption", "text", "book", "position", "importIndex"},
     "notionGroup": {"caption"},

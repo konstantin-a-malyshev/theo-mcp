@@ -4,8 +4,8 @@ from theo_mcp_server.validation import normalize_label, normalize_edge_label, va
 
 
 def test_normalize_label():
-    assert normalize_label("book") == "book"
-    assert normalize_label("Book") == "book"
+    assert normalize_label("scholarlyWork") == "scholarlyWork"
+    assert normalize_label("scholarlywork") == "scholarlyWork"
     assert normalize_label("notiongroup") == "notionGroup"
 
 

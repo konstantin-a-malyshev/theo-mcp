@@ -9,7 +9,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-`theo-mcp-server` is a Python MCP server that exposes CRUD + edge operations against a JanusGraph (Gremlin) graph holding a domain schema of theological notions, verses, books, persons, quotations, and groups. It is invoked over stdio (default) or `streamable-http` by an MCP client (Claude Desktop, MCP Inspector, tests).
+`theo-mcp-server` is a Python MCP server that exposes CRUD + edge operations against a JanusGraph (Gremlin) graph holding a domain schema of theological notions, verses, scholarly works, persons, quotations, and groups. It is invoked over stdio (default) or `streamable-http` by an MCP client (Claude Desktop, MCP Inspector, tests).
 
 ## Commands
 
@@ -47,9 +47,11 @@ The Gremlin connection is opened **once per server lifecycle** by `app_lifespan`
 
 Schema (vertex labels, allowed/required props, edge labels) is centralized in [schema.py](src/theo_mcp_server/schema.py). All user-supplied labels and properties flow through [validation.py](src/theo_mcp_server/validation.py) (`normalize_label`, `normalize_edge_label`, `validate_and_fix_properties`) before reaching Gremlin. Label inputs are case-insensitive; canonical forms are defined by `LABELS_CANON`.
 
+The vertex type `book` was renamed to `scholarlyWork` (a modern academic study of the Bible); the planned siblings are `biblicalBook` and `receptionWork`. The *properties* named `book` on `quotation` (the work a quotation comes from) and on `verse` (the biblical book, next to `bookShort`) keep that name — renaming them means migrating vertex data, not just code. `scripts/retype_vertices.py` moves existing vertices between types.
+
 Tool implementations live in [src/theo_mcp_server/tools/](src/theo_mcp_server/tools):
 
-- `graph.py` — all graph MCP tools: CRUD for notions/notionGroups/verses/verseGroups/quotations/books, relationships, search, trees, caption rename.
+- `graph.py` — all graph MCP tools: CRUD for notions/notionGroups/verses/verseGroups/quotations/scholarlyWorks, relationships, search, trees, caption rename.
 - `diagram.py` — Graphviz-based SVG diagram generation (`create_diagram_by_captions`, `change_caption`). Depends on the `graphviz` Python package and the system `dot` binary being on PATH.
 - `backup.py` — `create_graph_backup`, the JSON export of the whole graph. Serialization and file writing live in [backup.py](src/theo_mcp_server/backup.py) (module, not the tool file); the Gremlin reads are `export_vertices_by_type` / `export_edges_for_types` in `gremlin_helpers.py`.
 

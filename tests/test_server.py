@@ -426,24 +426,24 @@ async def test_create_diagram_by_captions(mcp_session, cloud_storage):
 
 
 @pytest.mark.anyio
-async def test_create_book(mcp_session):
-    prefix = "test_create_book"
+async def test_create_scholarly_work(mcp_session):
+    prefix = "test_create_scholarly_work"
     timestamp = datetime.datetime.now().strftime("%d.%m.%Y %H:%M:%S")
 
     caption = f"{prefix}_{timestamp}"
 
-    result = await mcp_session.call_tool("create_book", {"caption": caption})
+    result = await mcp_session.call_tool("create_scholarly_work", {"caption": caption})
     created = result.structuredContent["created"]
 
     print(json.dumps(result.structuredContent, indent=2, ensure_ascii=False))
 
     assert created["caption"] == caption
-    assert created["label"] == "book"
+    assert created["label"] == "scholarlyWork"
 
-    get_result = await mcp_session.call_tool("get_book_by_caption", {"caption": caption})
+    get_result = await mcp_session.call_tool("get_scholarly_work_by_caption", {"caption": caption})
     assert get_result.structuredContent.get("caption") == caption
 
-    delete_result = await mcp_session.call_tool("delete_book_by_caption", {"caption": caption})
+    delete_result = await mcp_session.call_tool("delete_scholarly_work_by_caption", {"caption": caption})
     assert delete_result.structuredContent["deleted"] is True
 
 @pytest.mark.anyio

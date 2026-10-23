@@ -21,6 +21,7 @@ from ..gremlin_helpers import (
     read_vertex_with_edges,
     delete_vertex_by_id,
     get_unique_vertex_by_caption,
+    get_unique_vertex_id_by_caption,
     create_edge,
     search_vertices,
     flatten_value_map,
@@ -48,7 +49,7 @@ def register_graph_tools(mcp: FastMCP) -> None:
             - contains
             - isContainedIn
 
-            Each relationship should map to a list of captions of existing notions, verses, notionGroups, books, verseGroups, or persons.       
+            Each relationship should map to a list of captions of existing notions, verses, notionGroups, scholarlyWorks, verseGroups, or persons.       
         """
         try:
             edges_in = filter_backward_relationships(relationships or {})
@@ -74,7 +75,7 @@ def register_graph_tools(mcp: FastMCP) -> None:
             - contains
             - isContainedIn
 
-            Each relationship should map to a list of captions of existing notions, verses, notionGroups, books, verseGroups, or persons.       
+            Each relationship should map to a list of captions of existing notions, verses, notionGroups, scholarlyWorks, verseGroups, or persons.       
         """
         try:
             edges_in = filter_backward_relationships(relationships or {})
@@ -354,7 +355,7 @@ def register_graph_tools(mcp: FastMCP) -> None:
             - contains
             - isContainedIn
 
-            Each relationship should map to a list of captions of existing notions, verses, notionGroups, books, verseGroups, or persons.       
+            Each relationship should map to a list of captions of existing notions, verses, notionGroups, scholarlyWorks, verseGroups, or persons.       
         """
         try:
             edges_in = filter_backward_relationships(relationships or {})
@@ -570,7 +571,7 @@ def register_graph_tools(mcp: FastMCP) -> None:
             The following relationships can be specified in the `relationships` parameter:
             - isContainedIn
 
-            Each relationship should map to a list of captions of existing books or persons.       
+            Each relationship should map to a list of captions of existing scholarlyWorks or persons.       
         """
         try:
             edges_in = filter_backward_relationships(relationships or {})
@@ -679,39 +680,35 @@ def register_graph_tools(mcp: FastMCP) -> None:
         except Exception:
             raise ToolError(traceback.format_exc())
         
-    @mcp.tool()    
-    def get_book_by_caption(
+    @mcp.tool()
+    def get_scholarly_work_by_caption(
         ctx: Context[ServerSession, AppContext],
         caption: str
     ) -> dict[str, Any]:
-        """Get book by caption."""
+        """Get a scholarly work (a modern academic study of the Bible) by caption."""
         try:
             g = get_g(ctx)
-            ids = g.V().has("caption", caption).hasLabel("book").id_().toList()
-            if not ids:
-                raise ValueError(f"Book not found: caption={caption}")
-            return read_vertex_with_edges(g, ids[0])
-        except Exception:
-            raise ToolError(traceback.format_exc())
-        
-    @mcp.tool()
-    def create_book(ctx: Context[ServerSession, AppContext], caption: str) -> dict[str, Any]:
-        """Create a book vertex."""
-        try:
-            g = get_g(ctx)
-            return create_vertex_and_connect_by_captions(g, "book", {"caption": caption}, {}, {})
+            id = get_unique_vertex_id_by_caption(g, caption, "scholarlyWork")
+            return read_vertex_with_edges(g, id)
         except Exception:
             raise ToolError(traceback.format_exc())
 
     @mcp.tool()
-    def delete_book_by_caption(ctx: Context[ServerSession, AppContext], caption: str) -> dict[str, Any]:
-        """Delete book by caption."""
+    def create_scholarly_work(ctx: Context[ServerSession, AppContext], caption: str) -> dict[str, Any]:
+        """Create a scholarlyWork vertex (a modern academic study of the Bible)."""
         try:
             g = get_g(ctx)
-            ids = g.V().has("caption", caption).hasLabel("book").id_().toList()
-            if not ids:
-                raise ValueError(f"Book not found: caption={caption}")
-            return delete_vertex_by_id(g, ids[0])
+            return create_vertex_and_connect_by_captions(g, "scholarlyWork", {"caption": caption}, {}, {})
+        except Exception:
+            raise ToolError(traceback.format_exc())
+
+    @mcp.tool()
+    def delete_scholarly_work_by_caption(ctx: Context[ServerSession, AppContext], caption: str) -> dict[str, Any]:
+        """Delete a scholarly work by caption."""
+        try:
+            g = get_g(ctx)
+            id = get_unique_vertex_id_by_caption(g, caption, "scholarlyWork")
+            return delete_vertex_by_id(g, id)
         except Exception:
             raise ToolError(traceback.format_exc())
 
