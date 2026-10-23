@@ -94,8 +94,9 @@ allows `caption` only. Extending it is a separate task; until then
 The source id belongs in the caption as well: captions must be unique
 (`create_vertex` refuses a duplicate), and the same locus with the same reference
 does occur more than once (`reference which occurs several times`, 1158 rows).
-`sourceKey` needs a composite JanusGraph index before a bulk import — without it
-every re-import row scans the graph (`docs/janus-graph.md` has the recipes).
+`sourceKey` has a composite JanusGraph index, `bySourceKey` (created October 2026,
+ENABLED) — without it every re-import row would scan the graph. See
+`scripts/create_index.py` and `docs/janus-graph.md`.
 
 **Locus as the source prints it**
 

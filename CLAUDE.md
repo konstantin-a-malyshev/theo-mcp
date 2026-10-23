@@ -24,6 +24,8 @@ PowerShell on Windows is the primary shell.
 - MCP Inspector: `npx @modelcontextprotocol/inspector`
 - Restart Claude Desktop after server changes: `.\restart-claude.ps1`
 - DB backup helper: `.\backup_db.ps1`
+- Create a JanusGraph index: `python scripts/create_index.py --property <key>` (dry run; `--apply` writes). It goes through the driver, not the Gremlin console — see [docs/janus-graph.md](docs/janus-graph.md).
+- Move vertices between types: `python scripts/retype_vertices.py --from <type> --to <type>` (dry run; `--apply` writes).
 
 The integration tests in [tests/test_server.py](tests/test_server.py) spawn the server via `python -m theo_mcp_server` using `.venv\Scripts\python.exe` — they require the venv at `.venv\` and a running Gremlin endpoint.
 
